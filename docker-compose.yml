@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  eidolon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eidolon-agent
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist x402 ledger and logs
+      - ./data:/app/data
+      # Mount .env file for configuration
+      - ./eidolon/agent/.env:/app/.env:ro
+      # Mount OpenClaw skills (for ethskills, image-hosting, etc.)
+      - ./.agents:/root/.openclaw/workspace/.agents:ro
+    environment:
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

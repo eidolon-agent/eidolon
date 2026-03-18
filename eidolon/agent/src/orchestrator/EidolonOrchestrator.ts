@@ -134,25 +134,28 @@ export class EidolonOrchestrator extends EventEmitter {
   }
 
   async initializeIdentity(): Promise<void> {
-    if (this.config.erc8004.agentId) {
-      this.reputation.setAgentId(BigInt(this.config.erc8004.agentId));
-      this.emit('log', `[Eidolon] Using existing agent ID ${this.config.erc8004.agentId}`);
+    const agentId = this.config.erc8004.agentId;
+    // Only use provided agentId if it looks like a valid hex address (0x followed by 40+ hex chars)
+    const isValidAgentId = agentId && /^0x[0-9a-fA-F]{40,}$/.test(agentId);
+    if (isValidAgentId) {
+      this.reputation.setAgentId(BigInt(agentId));
+      this.emit('log', `[Eidolon] Using existing agent ID ${agentId}`);
       return;
     }
 
     if (!this.reputation.isEnabled()) {
-      this.emit('log', '[Eidolon] ERC-8004 not configured. Skipping identity registration.');
+      this.emit('log', '[Eidolon] ERC-8004 not configured or agent ID not set. Skipping identity registration.');
       return;
     }
 
     this.emit('log', '[Eidolon] Registering ERC-8004 identity...');
     try {
-      const agentId = await this.reputation.registerAgent(
+      const newAgentId = await this.reputation.registerAgent(
         this.config.agent.name,
         this.config.agent.description,
         this.config.agent.capabilities
       );
-      this.emit('log', `[Eidolon] Agent registered with ID ${agentId.toString()}`);
+      this.emit('log', `[Eidolon] Agent registered with ID ${newAgentId.toString()}`);
     } catch (err: any) {
       this.emit('error', `Failed to register ERC-8004 identity: ${err.message}`);
       // Continue running; reputation features will be limited

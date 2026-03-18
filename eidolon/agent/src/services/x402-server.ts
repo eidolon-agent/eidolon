@@ -277,6 +277,33 @@ export class X402Server extends EventEmitter {
         res.status(400).json({ error: 'Invalid score' });
       }
     });
+
+    // Root page for demo
+    this.app.get('/', (req: Request, res: Response) => {
+      const html = `<!DOCTYPE html>
+<html>
+<head><title>Eidolon Agent</title>
+<style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px;background:#f5f5f5;color:#333}a{color:#0066cc}code{background:#eee;padding:2px 4px;border-radius:3px}</style>
+</head>
+<body>
+  <h1>🏛️ Eidolon Agent</h1>
+  <p><strong>Status:</strong> <span style="color:green;">Running</span></p>
+  <p><strong>Port:</strong> ${this.config.port}</p>
+  <p><strong>Treasury Wallet:</strong> ${this.config.paymentAddress}</p>
+  <p><strong>x402 Trust Score:</strong> ${this.trustScore}/1000</p>
+  <h2>Endpoints</h2>
+  <ul>
+    <li><a href="/health">/health</a> — Health check</li>
+    <li><code>GET /signals/price/:token</code> — Price signal (x402)</li>
+    <li><code>GET /reports/daily</code> — Daily report (x402)</li>
+    <li><code>POST /copilot/chat</code> — Chat (x402)</li>
+    <li><code>POST /webhook/credit</code> — Credit client</li>
+  </ul>
+  <p><em>Built with OpenClaw | Bankr LLM Gateway | x402</em></p>
+</body>
+</html>`;
+      res.send(html);
+    });
   }
 
   start() {

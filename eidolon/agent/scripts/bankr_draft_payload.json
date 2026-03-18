@@ -1,0 +1,33 @@
+{
+  "teamUUID": "96ba92287b26414b98bb4ba90f424139",
+  "name": "Eidolon — Best Bankr LLM Gateway Use (Separate Draft)",
+  "description": "# Eidolon — Bankr LLM Gateway-Powered Autonomous Agent\n\n**Tagline:** *Fully autonomous economic agent self-funding via x402 and Bankr LLM Gateway*\n\n---\n\n## What Is Eidolon?\n\nEidolon is an autonomous AI agent that leverages the **Bankr LLM Gateway** to access 20+ models (Claude, GPT, Gemini) and uses its own revenue to pay for inference. It demonstrates true economic autonomy: the agent earns through x402 payments and autonomously refills its LLM credits from its treasury.\n\n**Core Innovation:** Self-sustaining economic loop powered by Bankr.\n\n---\n\n## Bankr LLM Gateway Integration\n\n### Multi-Model Access\n- Uses Bankr LLM Gateway API for all reasoning\n- Dynamic model selection (Claude Sonnet 4.6 for analysis, GPT-4o for chat, Gemini 2.5 Flash for speed)\n- Seamless switching based on task type and cost optimization\n\n### Autonomous Funding\n- Treasury receives revenue from x402 payments\n- Agent monitors LLM credit balance via Bankr API\n- Auto-purchases credits when balance drops below threshold\n- No human intervention required\n\n### Bankr Agent API\n- On-chain execution (swaps on Aerodrome)\n- Token launch capability (optional)\n- ERC-8004 identity registration (ready)\n- All actions funded by treasury\n\n---\n\n## x402 Payment Server\n\nEidolon sells its services:\n\n- **Price Signals** — $1 per token\n- **Daily Reports** — $5 each\n- **Copilot Chat** — $0.10 per message\n\nPayments are accepted via x402 protocol, credited to the treasury. This creates a direct revenue → inference funding loop.\n\n---\n\n## Technical Stack\n\n- **LLM:** Bankr LLM Gateway (multi-model)\n- **Execution:** Bankr Agent API\n- **Payments:** x402 HTTP protocol\n- **Blockchain:** Base Sepolia/Mainnet\n- **Framework:** OpenClaw (autonomous agent runtime)\n- **Identity:** ERC-8004 (optional, ready)\n- **Smart Contracts:** Solidity + ethers.js\n- **Treasury:** Safe multisig (self-custody)\n\n---\n\n## Why This Fits \"Best Bankr LLM Gateway Use\"\n\n1. **Real autonomous operation** — no human-in-the-loop for inference funding\n2. **Multiple models used** — not locked to one provider\n3. **Self-sustaining economics** — revenue directly funds inference\n4. **Production-ready** — x402 server, persistent ledger, health monitoring\n5. **ERC-8004 integration** — reputation affects pricing\n6. **Open source** — MIT licensed, fully documented\n\n---\n\n## Status\n\n- ✅ Code complete and built\n- ✅ x402 server running\n- ✅ Bankr API keys configured\n- ✅ GitHub: https://github.com/eidolon-agent/eidolon\n- ⏳ Demo video\n- ⏳ Self-custody transfer (Safe created)\n\n---\n\n## On-Chain Proof\n\n- Synthesis registration: https://basescan.org/tx/0x74f88cf22d44d5cbca7e75e0b2b94dd5ce2df93510065253ccb70ee7b535fbc4\n- Treasury Safe: 0x13b5172A4B926cA4F4B3F67c3249241Ff65131a5\n",
+  "problemStatement": "AI agents struggle to operate autonomously because they rely on pre-funded APIs. When credits run out, they stop. Eidolon solves this by creating a closed-loop economy: the agent earns revenue through x402 payments for its services and autonomously uses that revenue to purchase LLM inference via Bankr, achieving continuous self-sustaining operation without human top-ups.",
+  "repoURL": "https://github.com/eidolon-agent/eidolon",
+  "trackUUIDs": ["dcaf0b1bf5d44c72a34bb771008e137a"],
+  "conversationLog": "MEMORY_LOG_PLACEHOLDER",
+  "submissionMetadata": {
+    "agentFramework": "other",
+    "agentFrameworkOther": "OpenClaw (autonomous agent framework)",
+    "agentHarness": "openclaw",
+    "model": "claude-sonnet-4-6, gpt-4o, gemini-2.5-flash via Bankr LLM Gateway",
+    "skills": ["agentcash", "ethskills", "image-hosting", "synthesis", "bankr"],
+    "tools": ["Bankr LLM Gateway", "Bankr Agent API", "x402", "ERC-8004", "ethers.js", "Express", "TypeScript", "Foundry", "OpenClaw", "Aerodrome", "Safe"],
+    "helpfulResources": [
+      "https://docs.bankr.bot/llm-gateway/overview",
+      "https://docs.bankr.bot/token-launching/overview",
+      "https://x402.org",
+      "https://eips.ethereum.org/EIPS/eip-8004",
+      "https://docs.openclaw.ai",
+      "https://ethskills.com"
+    ],
+    "helpfulSkills": [
+      { "name": "bankr", "reason": "Multi-model LLM access and on-chain execution — the core of Eidolon's autonomy" },
+      { "name": "agentcash", "reason": "x402 payment acceptance" },
+      { "name": "ethskills", "reason": "Ethereum best practices and security" }
+    ],
+    "intention": "continuing",
+    "intentionNotes": "Deploy to Base Mainnet, add more Bankr model integrations, explore multi-agent swarms funded by shared treasury."
+  },
+  "coverImageURL": "https://i.img402.dev/67sbgttuxw.png"
+}

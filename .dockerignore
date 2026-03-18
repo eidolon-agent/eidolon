@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+dist
+.git
+.gitignore
+memory/
+README.md
+PROJECT_SUMMARY.md
+CHECKLIST.md
+SUBMISSION_GUIDE.md
+DEVROLIO_DESCRIPTION.md
+LICENSE
+eidolon/agent/.env
+eidolon/agent/data/
+eidolon/agent/dist/
+

@@ -21,6 +21,10 @@ const VALIDATION_REGISTRY_ABI = [
   'function verifyCredential(uint256 agentId, bytes32 capability, bytes32 dataHash) external view returns (bool)',
 ];
 
+function isValidAddress(addr: string): boolean {
+  return /^0x[0-9a-fA-F]{40,}$/.test(addr) && addr !== '0x0000000000000000000000000000000000000000';
+}
+
 export interface ERC8004Config {
   identityRegistry: string;
   reputationRegistry: string;
@@ -50,20 +54,29 @@ export class ReputationManager extends EventEmitter {
     this.provider = new ethers.providers.JsonRpcProvider(rpcUrl);
     this.operatorWallet = config.operatorWallet;
 
-    // Only initialize contracts if addresses are provided and look valid
-    if (config.identityRegistry && config.identityRegistry !== '0x0000000000000000000000000000000000000000') {
-      try {
-        this.identityRegistry = new ethers.Contract(config.identityRegistry, IDENTITY_REGISTRY_ABI, this.provider);
-        this.reputationRegistry = new ethers.Contract(config.reputationRegistry, REPUTATION_REGISTRY_ABI, this.provider);
-        this.validationRegistry = new ethers.Contract(config.validationRegistry, VALIDATION_REGISTRY_ABI, this.provider);
-        this.enabled = true;
-        console.log('[Reputation] ERC-8004 contracts initialized');
-      } catch (err) {
-        console.warn('[Reputation] Failed to initialize ERC-8004 contracts. Running without reputation integration.');
-        this.enabled = false;
-      }
-    } else {
-      console.warn('[Reputation] No ERC-8004 registry addresses provided. Reputation features disabled.');
+    // Validate all registry addresses look like real contract addresses (not placeholders)
+    const addrsValid = [
+      config.identityRegistry,
+      config.reputationRegistry,
+      config.validationRegistry,
+    ].every(addr => isValidAddress(addr));
+
+    if (!addrsValid) {
+      console.warn('[Reputation] ERC-8004 registry addresses are missing or invalid. Reputation features disabled.');
+      this.enabled = false;
+      return;
+    }
+
+    // Only initialize contracts if addresses are valid
+    try {
+      this.identityRegistry = new ethers.Contract(config.identityRegistry, IDENTITY_REGISTRY_ABI, this.provider);
+      this.reputationRegistry = new ethers.Contract(config.reputationRegistry, REPUTATION_REGISTRY_ABI, this.provider);
+      this.validationRegistry = new ethers.Contract(config.validationRegistry, VALIDATION_REGISTRY_ABI, this.provider);
+      this.enabled = true;
+      console.log('[Reputation] ERC-8004 contracts initialized');
+    } catch (err) {
+      console.warn('[Reputation] Failed to initialize ERC-8004 contracts. Running without reputation integration.', err);
+      this.enabled = false;
     }
   }
 
@@ -102,7 +115,10 @@ export class ReputationManager extends EventEmitter {
     if (!this.enabled || !this.reputationRegistry) {
       return 500; // Default neutral score when disabled
     }
-    if (!this.agentId) throw new Error('Agent not registered');
+    if (!this.agentId) {
+      // Not registered yet — return neutral score
+      return 500;
+    }
     const rep = await this.reputationRegistry.getAgentReputation(this.agentId);
     return Number(rep.score);
   }

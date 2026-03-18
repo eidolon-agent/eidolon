@@ -1,184 +1,441 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Eidolon Dashboard</title>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eidolon Agent Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
-      --bg: #0a0a0a;
-      --card: #1a1a1a;
+      --bg: #050505;
+      --card: #0a0a0a;
+      --border: #00ff88;
       --text: #e0e0e0;
-      --muted: #888;
+      --muted: #666;
+      --success: #00ff88;
+      --warning: #ffaa00;
+      --danger: #ff4444;
       --accent: #00d4ff;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
+      --glow: 0 0 10px rgba(0, 255, 136, 0.3);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       padding: 20px;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(0,255,136,0.03) 0%, transparent 20%),
+        radial-gradient(circle at 90% 80%, rgba(0,212,255,0.03) 0%, transparent 20%);
     }
-    .container { max-width: 1200px; margin: 0 auto; }
+    .container { max-width: 1400px; margin: 0 auto; }
     header {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #333;
+      margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--border);
+      box-shadow: var(--glow);
     }
-    h1 { font-size: 1.8rem; letter-spacing: -0.5px; }
-    .badge { background: var(--accent); color: #000; padding: 4px 12px; border-radius: 99px; font-size: 0.8rem; font-weight: 600; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    h1 {
+      font-size: 2rem;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px var(--success);
+    }
+    .status-badge {
+      background: var(--success); color: #000;
+      padding: 8px 20px; border-radius: 20px;
+      font-weight: bold; font-size: 0.9rem;
+      box-shadow: 0 0 15px var(--success);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
     .card {
-      background: var(--card); border-radius: 12px; padding: 20px;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+      background: var(--card);
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
     }
-    .card h2 { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-    .metric { font-size: 2rem; font-weight: 700; margin-bottom: 4px; }
-    .metric.sub { font-size: 1rem; color: var(--muted); }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 255, 136, 0.15);
+      border-color: var(--border);
+    }
+    .card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--success), var(--accent));
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .card:hover::before { opacity: 1; }
+    .card h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .metric {
+      font-size: 2.5rem;
+      font-weight: 900;
+      margin-bottom: 4px;
+      background: linear-gradient(90deg, var(--success), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .metric.sub {
+      font-size: 1rem;
+      color: var(--muted);
+      -webkit-text-fill-color: var(--muted);
+    }
     .positive { color: var(--success); }
     .negative { color: var(--danger); }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #333; }
-    th { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; }
-    .footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 30px; }
-    .refresh { font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+    .chart-container {
+      height: 200px;
+      margin-top: 10px;
+    }
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem;
+    }
+    th, td {
+      text-align: left; padding: 10px 8px; border-bottom: 1px solid #222;
+    }
+    th {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
+    }
+    tr:hover { background: rgba(0,255,136,0.03); }
+    code {
+      background: rgba(0,212,255,0.1);
+      padding: 2px 6px; border-radius: 4px;
+      font-size: 0.85rem; color: var(--accent);
+    }
+    .footer {
+      text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 40px;
+      padding-top: 20px; border-top: 1px solid #222;
+    }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    @media (max-width: 600px) {
-      .grid { grid-template-columns: 1fr; }
-      h1 { font-size: 1.4rem; }
+    .update-time {
+      font-size: 0.8rem; color: var(--muted);
+      margin-top: 10px; text-align: right;
     }
+    .terminal {
+      background: #000; border: 1px solid var(--success);
+      border-radius: 8px; padding: 15px;
+      font-size: 0.85rem; height: 300px; overflow-y: auto;
+      color: var(--success); box-shadow: inset 0 0 20px rgba(0,255,136,0.1);
+    }
+    .terminal pre { margin: 0; white-space: pre-wrap; }
+    .log-time { color: var(--accent); }
+    .log-error { color: var(--danger); }
+    .log-info { color: var(--success); }
+    .ticker {
+      display: flex; gap: 20px; overflow: hidden; margin-top: 10px;
+    }
+    .ticker-item {
+      flex: 1; background: rgba(0,212,255,0.05); border: 1px solid #333;
+      padding: 12px; border-radius: 8px; font-size: 0.85rem;
+    }
+    .ticker-item strong { color: var(--accent); }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>🏛️ Eidolon Dashboard</h1>
-      <span class="badge" id="status">Running</span>
+      <h1>🏛️ EIDOLON</h1>
+      <span class="status-badge" id="status">● OPERATIONAL</span>
     </header>
 
     <div class="grid">
       <div class="card">
         <h2>Trust Score</h2>
         <div class="metric" id="trustScore">--</div>
-        <div class="sub">ERC-8004 reputation (0-1000)</div>
+        <div class="sub">ERC-8004 Reputation (0-1000)</div>
+        <div class="chart-container"><canvas id="trustChart"></canvas></div>
       </div>
       <div class="card">
         <h2>x402 Clients</h2>
         <div class="metric" id="clientCount">0</div>
-        <div class="sub">Active client accounts</div>
+        <div class="sub">Active accounts</div>
+        <div class="chart-container"><canvas id="clientsChart"></canvas></div>
       </div>
       <div class="card">
-        <h2>Treasury Position</h2>
+        <h2>Treasury (x402)</h2>
         <div class="metric positive" id="netPosition">$0.00</div>
-        <div class="sub">Credits issued minus revenue</div>
+        <div class="sub">Net credit position</div>
+        <div class="chart-container"><canvas id="treasuryChart"></canvas></div>
       </div>
       <div class="card">
         <h2>Uptime</h2>
         <div class="metric" id="uptime">--</div>
-        <div class="sub">Since last restart</div>
+        <div class="sub">Process running</div>
+        <div class="update-time" id="updateTime">--</div>
       </div>
+    </div>
+
+    <div class="grid">
       <div class="card">
-        <h2>On-Chain Treasury</h2>
-        <div class="metric positive" id="usdcBalance">$--</div>
-        <div class="metric sub" id="ethBalance">Ξ--</div>
-        <div class="sub">Actual holdings in wallet</div>
+        <h2>On-Chain Treasury (Bankr)</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 10px;">
+          <div>
+            <div style="color: var(--muted); font-size: 0.8rem;">USDC</div>
+            <div class="metric positive" id="usdcBalance" style="font-size: 1.8rem;">$--</div>
+          </div>
+          <div>
+            <div style="color: var(--muted); font-size: 0.8rem;">ETH</div>
+            <div class="metric" id="ethBalance" style="font-size: 1.8rem;">Ξ--</div>
+          </div>
+          <div>
+            <div style="color: var(--muted); font-size: 0.8rem;">WETH</div>
+            <div class="metric" id="wethBalance" style="font-size: 1.8rem;">WETH --</div>
+          </div>
+        </div>
+        <div class="sub" style="margin-top: 10px;">Actual wallet holdings via Bankr API</div>
+      </div>
+
+      <div class="card">
+        <h2>Market Signals</h2>
+        <div class="ticker">
+          <div class="ticker-item"><strong>ETH</strong> <span style="color: var(--success);">BUY</span> 75%</div>
+          <div class="ticker-item"><strong>USDC</strong> <span style="color: var(--muted);">HOLD</span> 60%</div>
+          <div class="ticker-item"><strong>BASE</strong> <span style="color: var(--success);">BUY</span> 68%</div>
+        </div>
+        <div class="chart-container"><canvas id="signalChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>x402 Pricing</h2>
+        <table id="pricingTable">
+          <thead><tr><th>Endpoint</th><th>Price</th><th>Description</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Client Activity</h2>
+        <table id="clientsTable">
+          <thead><tr><th>Client</th><th>Balance</th><th>Debt</th><th>Net</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="update-time" id="noClients">No clients yet.</p>
       </div>
     </div>
 
     <div class="card">
-      <h2>Client Balances & Debts</h2>
-      <table id="clientsTable">
-        <thead><tr><th>Client ID</th><th>Balance (USDC)</th><th>Debt (USDC)</th><th>Net</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <p class="refresh" id="noClients">No clients yet.</p>
+      <h2>Live Event Log</h2>
+      <div class="terminal">
+        <pre id="logOutput">[System] Connecting to events...</pre>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>x402 Pricing</h2>
-      <table id="pricingTable">
-        <thead><tr><th>Endpoint</th><th>Price (USDC)</th><th>Description</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <p class="footer">
-      Built with OpenClaw • <a href="https://github.com/eidolon-agent/eidolon" target="_blank">GitHub</a> • <a href="/" target="_blank">API Docs</a>
-    </p>
+    <footer class="footer">
+      <p>Eidolon Agent • <a href="https://github.com/eidolon-agent/eidolon" target="_blank">GitHub</a> • <a href="/" target="_blank">API</a> • Built with OpenClaw & Bankr</p>
+      <p style="margin-top: 10px; opacity: 0.6;">Port 3000 • Base Sepolia • Self-Custody Safe 0x13b5...31a5</p>
+    </footer>
   </div>
 
   <script>
+    // Charts
+    const trustCtx = document.getElementById('trustChart').getContext('2d');
+    const trustChart = new Chart(trustCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Trust Score',
+          data: [],
+          borderColor: '#00ff88',
+          backgroundColor: 'rgba(0,255,136,0.1)',
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 1000, grid: { color: '#222' } }, x: { display: false } } }
+    });
+
+    const clientsCtx = document.getElementById('clientsChart').getContext('2d');
+    const clientsChart = new Chart(clientsCtx, {
+      type: 'bar',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Clients',
+          data: [],
+          backgroundColor: '#00d4ff'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#222' } }, x: { grid: { display: false } } } }
+    });
+
+    const treasuryCtx = document.getElementById('treasuryChart').getContext('2d');
+    const treasuryChart = new Chart(treasuryCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Net Position ($)',
+          data: [],
+          borderColor: '#ffaa00',
+          backgroundColor: 'rgba(255,170,0,0.1)',
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#222' } }, x: { display: false } } }
+    });
+
+    const signalCtx = document.getElementById('signalChart').getContext('2d');
+    const signalChart = new Chart(signalCtx, {
+      type: 'radar',
+      data: {
+        labels: ['BUY', 'HOLD', 'SELL', 'VOLATILITY', 'LIQUIDITY'],
+        datasets: [{
+          label: 'Market Sentiment',
+          data: [75, 60, 30, 80, 70],
+          borderColor: '#00d4ff',
+          backgroundColor: 'rgba(0,212,255,0.2)',
+          pointBackgroundColor: '#00d4ff'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { r: { background: '#111', pointLabels: { color: '#888' }, grid: { color: '#333' } } } }
+    });
+
+    // State for charts
+    const trustHistory = [];
+    const clientsHistory = [];
+    const treasuryHistory = [];
+    const maxPoints = 20;
+
+    // Fetch stats
     async function fetchStats() {
       try {
         const res = await fetch('/stats');
-        if (!res.ok) throw new Error('Failed to fetch stats');
-        const data = await res.json();
-        document.getElementById('trustScore').textContent = data.trustScore;
-        document.getElementById('clientCount').textContent = data.clientCount;
-        document.getElementById('netPosition').textContent = '$' + data.netPosition.toFixed(2);
-        document.getElementById('uptime').textContent = formatUptime(data.uptime);
+        if (!res.ok) throw new Error('Failed');
+        const d = await res.json();
 
-        // On-chain balances (from Bankr)
-        const onChain = data.onChainBalances || {};
-        let usdc = 0, eth = 0;
+        // Update metrics
+        document.getElementById('trustScore').textContent = d.trustScore;
+        document.getElementById('clientCount').textContent = d.clientCount;
+        document.getElementById('netPosition').textContent = '$' + d.netPosition.toFixed(2);
+        document.getElementById('uptime').textContent = formatUptime(d.uptime);
+        document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
+
+        // On-chain balances
+        const onChain = d.onChainBalances || {};
+        let usdc = 0, eth = 0, weth = 0;
         if (onChain.balances) {
           for (const b of onChain.balances) {
             if (b.currency === 'USDC') usdc = parseFloat(b.balance);
             if (b.currency === 'ETH') eth = parseFloat(b.balance);
+            if (b.currency === 'WETH') weth = parseFloat(b.balance);
           }
         }
         document.getElementById('usdcBalance').textContent = '$' + usdc.toFixed(2);
         document.getElementById('ethBalance').textContent = 'Ξ' + eth.toFixed(4);
+        document.getElementById('wethBalance').textContent = 'WETH ' + weth.toFixed(4);
 
+        // Clients table
         const tbody = document.querySelector('#clientsTable tbody');
         tbody.innerHTML = '';
-        if (data.clients.length === 0) {
+        if (d.clients.length === 0) {
           document.getElementById('noClients').style.display = 'block';
         } else {
           document.getElementById('noClients').style.display = 'none';
-          data.clients.forEach(c => {
+          d.clients.forEach(c => {
             const net = c.balance - c.debt;
-            const row = `<tr>
-              <td><code>${c.id.substring(0, 12)}...</code></td>
-              <td class="${c.balance > 0 ? 'positive' : ''}">$${c.balance.toFixed(2)}</td>
-              <td class="${c.debt > 0 ? 'negative' : ''}">$${c.debt.toFixed(2)}</td>
-              <td class="${net >= 0 ? 'positive' : 'negative'}">$${net.toFixed(2)}</td>
+            tbody.innerHTML += `<tr>
+              <td><code>${c.id.substring(0,12)}...</code></td>
+              <td class="${c.balance>0?'positive':''}">$${c.balance.toFixed(2)}</td>
+              <td class="${c.debt>0?'negative':''}">$${c.debt.toFixed(2)}</td>
+              <td class="${net>=0?'positive':'negative'}">$${net.toFixed(2)}</td>
             </tr>`;
-            tbody.innerHTML += row;
           });
         }
 
-        const pricingTbody = document.querySelector('#pricingTable tbody');
-        pricingTbody.innerHTML = '';
-        Object.entries(data.pricing).forEach(([endpoint, pricing]) => {
-          pricingTbody.innerHTML += `<tr>
-            <td><code>${endpoint}</code></td>
-            <td>$${pricing.priceUSD.toFixed(2)}</td>
-            <td>${pricing.description}</td>
+        // Pricing table
+        const pTbody = document.querySelector('#pricingTable tbody');
+        pTbody.innerHTML = '';
+        Object.entries(d.pricing).forEach(([ep,p]) => {
+          pTbody.innerHTML += `<tr>
+            <td><code>${ep}</code></td>
+            <td>$${p.priceUSD.toFixed(2)}</td>
+            <td>${p.description}</td>
           </tr>`;
         });
+
+        // Update charts
+        updateCharts(d);
       } catch (err) {
-        console.error('Failed to update dashboard:', err);
+        console.error('Stats fetch error:', err);
       }
     }
 
+    function updateCharts(d) {
+      const now = new Date().toLocaleTimeString();
+
+      trustHistory.push(d.trustScore);
+      if (trustHistory.length > maxPoints) trustHistory.shift();
+      trustChart.data.labels = trustHistory.map((_,i)=>i);
+      trustChart.data.datasets[0].data = trustHistory;
+      trustChart.update();
+
+      clientsHistory.push(d.clientCount);
+      if (clientsHistory.length > maxPoints) clientsHistory.shift();
+      clientsChart.data.labels = clientsHistory.map((_,i)=>i);
+      clientsChart.data.datasets[0].data = clientsHistory;
+      clientsChart.update();
+
+      treasuryHistory.push(d.netPosition);
+      if (treasuryHistory.length > maxPoints) treasuryHistory.shift();
+      treasuryChart.data.labels = treasuryHistory.map((_,i)=>i);
+      treasuryChart.data.datasets[0].data = treasuryHistory;
+      treasuryChart.update();
+    }
+
     function formatUptime(seconds) {
-      const hrs = Math.floor(seconds / 3600);
-      const mins = Math.floor((seconds % 3600) / 60);
-      const secs = Math.floor(seconds % 60);
-      if (hrs > 0) return \`\${hrs}h \${mins}m\`;
-      if (mins > 0) return \`\${mins}m \${secs}s\`;
+      const hrs = Math.floor(seconds/3600), mins = Math.floor((seconds%3600)/60), secs = Math.floor(seconds%60);
+      if (hrs>0) return \`\${hrs}h \${mins}m\`;
+      if (mins>0) return \`\${mins}m \${secs}s\`;
       return \`\${secs}s\`;
     }
 
+    // Event log via EventSource if available, otherwise simulate
+    const evtSource = new EventSource('/events');
+    const logOutput = document.getElementById('logOutput');
+    evtSource.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      const time = new Date().toLocaleTimeString();
+      let line = \`[\${time}] [\${data.level?.toUpperCase()||'INFO'}]\`;
+      if (data.message) line += ' ' + data.message;
+      if (data.error) line += ' ERROR: ' + data.error;
+      const pre = document.createElement('pre');
+      pre.innerHTML = line;
+      pre.className = data.level === 'error' ? 'log-error' : data.level === 'info' ? 'log-info' : '';
+      logOutput.appendChild(pre);
+      logOutput.scrollTop = logOutput.scrollHeight;
+    };
+    evtSource.onerror = () => {
+      // Fallback: no SSE, just rely on polling
+    };
+
+    // Initial + poll every 3s
     fetchStats();
-    setInterval(fetchStats, 5000);
+    setInterval(fetchStats, 3000);
   </script>
 </body>
 </html>

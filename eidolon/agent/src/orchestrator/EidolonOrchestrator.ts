@@ -33,6 +33,7 @@ export interface EidolonConfig {
     pricing: Record<string, { priceUSD: number; description: string }>;
     maxDebt: number;
     dataDir?: string; // optional directory for x402 persistence
+    demoMode?: boolean; // if true, auto-seeds demo client on startup
   };
   network: {
     rpcUrl: string;
@@ -102,6 +103,7 @@ export class EidolonOrchestrator extends EventEmitter {
         pricing: config.x402.pricing,
         maxDebt: config.x402.maxDebt,
         dataDir: config.x402.dataDir,
+        demoMode: config.x402.demoMode,
       },
       this.bankr
     );

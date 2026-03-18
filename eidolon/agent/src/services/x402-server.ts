@@ -24,6 +24,7 @@ export interface X402Config {
   maxDebt: number;
   trustScoreWeight?: number; // optional, 0-1, how much ERC-8004 trust influences price
   dataDir?: string; // optional directory for persistence
+  demoMode?: boolean; // if true, auto-seeds a demo client on startup
 }
 
 // Simple in-memory credit ledger for x402 payments with file persistence
@@ -340,6 +341,15 @@ export class X402Server extends EventEmitter {
     this.app.listen(this.config.port, () => {
       this.emit('started', { port: this.config.port });
       console.log(`X402 server listening on port ${this.config.port}`);
+
+      // Demo mode: auto-seed a demo client with credits
+      if (this.config.demoMode) {
+        this.creditClient('demo', 10).then(() => {
+          console.log('[Demo] Seeded demo client with 10 USDC');
+        }).catch(err => {
+          console.error('[Demo] Failed to seed demo client:', err);
+        });
+      }
     });
   }
 

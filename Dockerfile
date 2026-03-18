@@ -3,9 +3,9 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Install deps
+# Install deps (including dev for build)
 COPY eidolon/agent/package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy source
 COPY eidolon/agent/tsconfig.json ./

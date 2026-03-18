@@ -125,6 +125,7 @@ export class X402Server extends EventEmitter {
   private bankr: BankrClient;
   private ledger: CreditLedger;
   private trustScore: number = 500; // default, update via reputation manager
+  private onChainBalances: any = null; // cached Bankr balances
 
   constructor(config: X402Config, bankr: BankrClient) {
     super();
@@ -139,6 +140,8 @@ export class X402Server extends EventEmitter {
     this.app.use(express.static(path.join(__dirname, '../public')));
     this.trustScore = 500; // default trust score
     this.setupRoutes();
+    // Background: fetch on-chain balances periodically
+    this.startBalancePolling();
   }
 
   setTrustScore(score: number) {
@@ -305,6 +308,7 @@ export class X402Server extends EventEmitter {
         pricing: this.config.pricing,
         paymentAddress: this.config.paymentAddress,
         uptime: process.uptime(),
+        onChainBalances: this.onChainBalances, // { usdc: string, eth: string, ... }
       });
     });
 
@@ -335,6 +339,26 @@ export class X402Server extends EventEmitter {
 </html>`;
       res.send(html);
     });
+  }
+
+  private async fetchOnChainBalances(): Promise<any> {
+    try {
+      const balances = await this.bankr.getBalances();
+      this.onChainBalances = balances;
+      return balances;
+    } catch (err: any) {
+      console.warn('[X402] Failed to fetch on-chain balances:', err.message);
+      return null;
+    }
+  }
+
+  private startBalancePolling() {
+    // Fetch balances every 60 seconds
+    setInterval(() => {
+      this.fetchOnChainBalances().catch(console.error);
+    }, 60_000);
+    // Initial fetch
+    this.fetchOnChainBalances().catch(console.error);
   }
 
   start() {

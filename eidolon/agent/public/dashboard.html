@@ -81,6 +81,12 @@
         <div class="metric" id="uptime">--</div>
         <div class="sub">Since last restart</div>
       </div>
+      <div class="card">
+        <h2>On-Chain Treasury</h2>
+        <div class="metric positive" id="usdcBalance">$--</div>
+        <div class="metric sub" id="ethBalance">Ξ--</div>
+        <div class="sub">Actual holdings in wallet</div>
+      </div>
     </div>
 
     <div class="card">
@@ -117,6 +123,18 @@
         document.getElementById('clientCount').textContent = data.clientCount;
         document.getElementById('netPosition').textContent = '$' + data.netPosition.toFixed(2);
         document.getElementById('uptime').textContent = formatUptime(data.uptime);
+
+        // On-chain balances (from Bankr)
+        const onChain = data.onChainBalances || {};
+        let usdc = 0, eth = 0;
+        if (onChain.balances) {
+          for (const b of onChain.balances) {
+            if (b.currency === 'USDC') usdc = parseFloat(b.balance);
+            if (b.currency === 'ETH') eth = parseFloat(b.balance);
+          }
+        }
+        document.getElementById('usdcBalance').textContent = '$' + usdc.toFixed(2);
+        document.getElementById('ethBalance').textContent = 'Ξ' + eth.toFixed(4);
 
         const tbody = document.querySelector('#clientsTable tbody');
         tbody.innerHTML = '';

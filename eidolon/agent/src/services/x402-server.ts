@@ -138,6 +138,13 @@ export class X402Server extends EventEmitter {
     this.app.use(express.json());
     // Serve static dashboard from public directory (dist/services/../.. = /app)
     this.app.use(express.static(path.join(process.cwd(), 'public')));
+    // Explicit routes for main pages (ensure .html served)
+    this.app.get('/', (req: Request, res: Response) => {
+      res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
+    });
+    this.app.get('/dashboard', (req: Request, res: Response) => {
+      res.sendFile(path.join(process.cwd(), 'public', 'dashboard.html'));
+    });
     this.trustScore = 500; // default trust score
     this.setupRoutes();
     // Background: fetch on-chain balances periodically

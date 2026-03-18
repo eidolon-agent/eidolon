@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eidolon Agent — API Documentation</title>
+  <style>
+    :root {
+      --bg: #050505;
+      --card: #0a0a0a;
+      --border: #00ff88;
+      --text: #e0e0e0;
+      --muted: #666;
+      --success: #00ff88;
+      --accent: #00d4ff;
+      --warning: #ffaa00;
+      --danger: #ff4444;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--border);
+    }
+    h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, var(--success), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .nav { display: flex; gap: 15px; }
+    .nav a {
+      color: var(--muted); font-size: 0.9rem;
+    }
+    .nav a:hover { color: var(--accent); }
+
+    .card {
+      background: var(--card);
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 25px;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: var(--border); }
+    .card h2 {
+      color: var(--success);
+      font-size: 1.3rem;
+      margin-bottom: 15px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .card h3 {
+      color: var(--accent);
+      font-size: 1rem;
+      margin: 15px 0 8px;
+    }
+    p { margin-bottom: 12px; color: var(--muted); }
+    code {
+      background: rgba(0,212,255,0.1);
+      padding: 2px 6px; border-radius: 4px;
+      font-size: 0.9rem; color: var(--accent);
+    }
+    pre {
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 15px;
+      overflow-x: auto;
+      margin: 10px 0;
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+    .method {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-weight: 900;
+      font-size: 0.8rem;
+      margin-right: 8px;
+    }
+    .get { background: rgba(0,255,136,0.2); color: var(--success); border: 1px solid var(--success); }
+    .post { background: rgba(0,212,255,0.2); color: var(--accent); border: 1px solid var(--accent); }
+    .endpoint {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      color: var(--warning);
+      margin: 8px 0;
+    }
+    table {
+      width: 100%; border-collapse: collapse; margin: 15px 0;
+    }
+    th, td {
+      text-align: left; padding: 10px; border-bottom: 1px solid #222;
+    }
+    th {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
+    }
+    .flow {
+      display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap;
+    }
+    .step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      flex: 1; min-width: 200px;
+    }
+    .step strong {
+      display: block; color: var(--success); margin-bottom: 6px;
+    }
+    .back-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: transparent; color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 10px 20px; border-radius: 6px;
+      margin: 20px 0; text-decoration: none; font-weight: 900;
+    }
+    .back-link:hover { background: var(--accent); color: #000; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">← Back to Command Center</a>
+
+    <header>
+      <h1>Eidolon Agent — API Documentation</h1>
+      <div class="nav">
+        <a href="/">Home</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/health">Health</a>
+      </div>
+    </header>
+
+    <div class="card">
+      <h2>📡 Overview</h2>
+      <p>Eidolon is an autonomous self-sustaining economic agent built on the Bankr LLM Gateway. It provides x402 payment infrastructure, treasury management, and on-chain reputation via ERC-8004.</p>
+      <p><strong>Base URL:</strong> <code>https://sea-lion-app-aurxb.ondigitalocean.app</code> (or your deployment URL)</p>
+      <p><strong>Port:</strong> 3000 (internal)</p>
+      <p><strong>Authentication:</strong> x402 payment headers for protected endpoints. Health and stats are public.</p>
+    </div>
+
+    <div class="card">
+      <h2>💰 x402 Payment Protocol</h2>
+      <p>Eidolon implements the <a href="https://x402.org" target="_blank">x402</a> protocol for monetizing API endpoints. Clients pay per-call using on-chain settlement (ERC-402).</p>
+
+      <h3>How it works:</h3>
+      <div class="flow">
+        <div class="step">
+          <strong>1. Request protected endpoint</strong>
+          Include header: <code>X-Client-ID: your-client-id</code>
+        </div>
+        <div class="step">
+          <strong>2. Receive 402 Payment Required</strong>
+          Response headers: <code>X-402-Payment-Required</code>, <code>X-402-Payment-Address</code>, <code>X-402-Payment-Description</code>
+        </div>
+        <div class="step">
+          <strong>3. Pay on-chain</strong>
+          Send specified amount (USDC) to the payment address. Include memo if required.
+        </div>
+        <div class="step">
+          <strong>4. Retry request</strong>
+          After payment is detected, endpoint returns data. Alternatively, call <code>/webhook/credit</code> to credit client manually.
+        </div>
+      </div>
+
+      <h3>Demo Mode</h3>
+      <p>When <code>DEMO_MODE=true</code> in <code>.env</code>, the agent auto-creates a demo client with credit balance. Use <code>X-Client-ID: demo</code> to access paid endpoints without real on-chain payment.</p>
+    </div>
+
+    <div class="card">
+      <h2>📋 Endpoints</h2>
+
+      <h3>Public Endpoints</h3>
+
+      <div class="endpoint">
+        <span class="method get">GET</span> /health
+      </div>
+      <p>Health check. Returns agent status, trust score, and uptime.</p>
+      <pre>{
+  "status": "ok",
+  "trustScore": 500,
+  "timestamp": "2026-03-18T17:00:00.000Z"
+}</pre>
+
+      <div class="endpoint">
+        <span class="method get">GET</span> /stats
+      </div>
+      <p>JSON statistics: trust score, client count, treasury net position, on-chain balances, pricing config, uptime.</p>
+      <pre>{
+  "trustScore": 500,
+  "clientCount": 3,
+  "totalBalance": 150.50,
+  "totalDebt": 45.25,
+  "netPosition": 105.25,
+  "clients": [
+    {"id": "client1", "balance": 50.00, "debt": 0},
+    {"id": "client2", "balance": 75.00, "debt": 20.00},
+    {"id": "client3", "balance": 25.50, "debt": 25.25}
+  ],
+  "pricing": {
+    "/signals/price/:token": {"priceUSD": 0.50, "description": "Price signal for a token"},
+    "/reports/daily": {"priceUSD": 5.00, "description": "Daily analytics report"},
+    "/copilot/chat": {"priceUSD": 0.10, "description": "Copilot chat per message"}
+  },
+  "paymentAddress": "0x...",
+  "uptime": 3600,
+  "onChainBalances": {
+    "usdc": "12345.67",
+    "eth": "12.345",
+    "weth": "5.678"
+  }
+}</pre>
+
+      <h3>x402 Protected Endpoints</h3>
+
+      <div class="endpoint">
+        <span class="method get">GET</span> /signals/price/:token
+      </div>
+      <p>Get trading signal for a token. Requires payment (default $0.50).</p>
+      <p><strong>Headers:</strong> <code>X-Client-ID: &lt;your-client-id&gt;</code></p>
+      <pre>GET /signals/price/ETH HTTP/1.1
+X-Client-ID: demo
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "token": "ETH",
+    "signal": "BUY",
+    "confidence": 0.75,
+    "reason": "Based on LLM analysis of on-chain flows",
+    "timestamp": "2026-03-18T17:00:00.000Z"
+  }
+}</pre>
+
+      <div class="endpoint">
+        <span class="method get">GET</span> /reports/daily
+      </div>
+      <p>Generate or fetch daily analytics report. Requires payment (default $5.00).</p>
+      <pre>GET /reports/daily HTTP/1.1
+X-Client-ID: demo
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "title": "Daily Report - 2026-03-18",
+    "summary": "Market bullish on Base; Aerodrome volume up 12%.",
+    "metrics": {
+      "ETH price": 3200,
+      "24h change": "+2.4%"
+    },
+    "insights": [
+      "Increased inflow to USDC on Base",
+      "New token launches trending"
+    ],
+    "generatedAt": "2026-03-18T17:00:00.000Z"
+  }
+}</pre>
+
+      <div class="endpoint">
+        <span class="method post">POST</span> /copilot/chat
+      </div>
+      <p>Chat with the agent's copilot (LLM). Requires payment (default $0.10 per message).</p>
+      <p><strong>Body:</strong> <code>{ "message": "your question" }</code></p>
+      <pre>POST /copilot/chat HTTP/1.1
+X-Client-ID: demo
+Content-Type: application/json
+
+{"message": "What's the current market sentiment?"}
+
+Response (200 OK):
+{
+  "success": true,
+  "response": "[Copilot] I heard you: \"What's the current market sentiment?\". (This is a demo; integrate Bankr LLM Gateway for real responses.)",
+  "timestamp": "2026-03-18T17:00:00.000Z"
+}</pre>
+
+      <div class="endpoint">
+        <span class="method get">GET</span> /events
+      </div>
+      <p>Server-Sent Events (SSE) stream of live logs. No authentication required. Used by dashboard for real-time updates.</p>
+      <p><strong>Format:</strong> <code>data: {"level":"info","message":"..."}\n\n</code></p>
+
+      <h3>Admin & Webhooks</h3>
+
+      <div class="endpoint">
+        <span class="method post">POST</span> /admin/trust-score
+      </div>
+      <p>Update agent trust score. Requires operator authentication (not yet implemented in demo).</p>
+      <pre>{ "score": 750 }</pre>
+
+      <div class="endpoint">
+        <span class="method post">POST</span> /webhook/credit
+      </div>
+      <p>Credit a client's balance (called by Bankr or external payment systems).</p>
+      <pre>{ "clientId": "client1", "amount": 10.00 }</pre>
+    </div>
+
+    <div class="card">
+      <h2>🔢 Trust-Based Pricing</h2>
+      <p>Eidolon adjusts prices based on the client's ERC-8004 trust score (0-1000). Higher trust = lower prices (up to 20% discount). Lower trust = higher prices (up to 100% surcharge).</p>
+      <pre>finalPrice = basePrice * (1 - (trustScore / 1000) * 0.2)
+// Range: 0.8 * basePrice (trust=1000) to 2.0 * basePrice (trust=0)</pre>
+      <p>Trust score is set via <code>/admin/trust-score</code> or automatically updated by the <code>ReputationManager</code> from on-chain reputation registries.</p>
+    </div>
+
+    <div class="card">
+      <h2>📁 File Structure</h2>
+      <table>
+        <tr><th>Path</th><th>Description</th></tr>
+        <tr><td><code>/</code></td><td>Landing page (cyberpunk command center)</td></tr>
+        <tr><td><code>/dashboard</code></td><td>Full interactive dashboard with charts</td></tr>
+        <tr><td><code>/health</code></td><td>Health check endpoint</td></tr>
+        <tr><td><code>/stats</code></td><td>JSON statistics</td></tr>
+        <tr><td><code>/events</code></td><td>SSE event stream</td></tr>
+        <tr><td><code>/docs</code></td><td>This API documentation</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>🏗️ Architecture</h2>
+      <ul style="margin-left: 20px; color: var(--muted);">
+        <li><strong>X402Server:</strong> Express server handling HTTP, x402, SSE, static assets</li>
+        <li><strong>CreditLedger:</strong> Persistent ledger (JSON file) tracking client balances and debts</li>
+        <li><strong>BankrClient:</strong> Wrapper for Bankr API (balances, health, on-chain data)</li>
+        <li><strong>ReputationManager:</strong> ERC-8004 identity and reputation integration (optional)</li>
+        <li><strong>Orchestrator:</strong> Autonomous loop (health checks, trust score sync, disabled trading)</li>
+      </ul>
+    </div>
+
+    <footer class="footer">
+      <p>Eidolon Agent • <a href="https://github.com/eidolon-agent/eidolon" target="_blank">GitHub</a> • <a href="https://synthesis.devfolio.co/p/eidolon-autonomous-self-sustaining-economic-agent-78d9" target="_blank">Synthesis Hackathon</a></p>
+      <p style="margin-top: 10px; opacity: 0.6;">Built with OpenClaw & Bankr LLM Gateway</p>
+    </footer>
+  </div>
+</body>
+</html>

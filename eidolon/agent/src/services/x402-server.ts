@@ -145,6 +145,9 @@ export class X402Server extends EventEmitter {
     this.app.get('/dashboard', (req: Request, res: Response) => {
       res.sendFile(path.join(process.cwd(), 'public', 'dashboard.html'));
     });
+    this.app.get('/docs', (req: Request, res: Response) => {
+      res.sendFile(path.join(process.cwd(), 'public', 'docs.html'));
+    });
     this.trustScore = 500; // default trust score
     this.setupRoutes();
     // Background: fetch on-chain balances periodically

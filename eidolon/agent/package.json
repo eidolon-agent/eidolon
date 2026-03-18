@@ -1,0 +1,38 @@
+{
+  "name": "eidolon-agent",
+  "version": "0.1.0",
+  "description": "Eidolon - Self-sustaining autonomous economic agent powered by Bankr LLM Gateway and ERC-8004",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "lint": "eslint src --ext .ts",
+    "test": "jest"
+  },
+  "dependencies": {
+    "ethers": "^5.8.0",
+    "axios": "^1.6.0",
+    "express": "^4.18.0",
+    "x402": "^0.2.0",
+    "bnc-solana": "^0.2.0",
+    "dotenv": "^16.0.0",
+    "uuid": "^9.0.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.0",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^9.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "ts-jest": "^29.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "OpenClaw Agent",
+  "license": "MIT"
+}

@@ -1,0 +1,95 @@
+{
+  "manifest_version": "1.0.0",
+  "name": "εἴδωλον",
+  "version": "0.1.0",
+  "description": "Self-sustaining autonomous economic agent that earns on-chain revenue to fund its own inference",
+  "capabilities": [
+    "trading",
+    "token-launch",
+    "research",
+    "x402-payments",
+    "erc8004-reputation",
+    "multi-model-orchestration"
+  ],
+  "architecture": {
+    "type": "modular_autonomous",
+    "components": [
+      "BankrClient",
+      "TreasuryManager",
+      "ReputationManager",
+      "TradingCopilot",
+      "TokenCopilot",
+      "ResearchCopilot",
+      "X402Server",
+      "AutonomousOrchestrator"
+    ]
+  },
+  "operator_model": {
+    "requires_operator_wallet": true,
+    "identity_linked_to_operator": true,
+    "reputation_builds_over_time": true,
+    "onchain_transactions_enabled": true,
+    "self_funding": true
+  },
+  "erc8004_compliance": {
+    "identity_registry": "${IDENTITY_REGISTRY}",
+    "reputation_registry": "${REPUTATION_REGISTRY}",
+    "validation_registry": "${VALIDATION_REGISTRY}",
+    "composite_trust_framework": true
+  },
+  "x402": {
+    "endpoints": [
+      "/signals/price/:token",
+      "/reports/daily",
+      "/copilot/chat"
+    ],
+    "payment_address": "${X402_PAYMENT_ADDRESS}",
+    "pricing": "dynamic_based_on_trust_score"
+  },
+  "autonomous_loops": {
+    "treasury_health_check": {
+      "description": "Check USDC and LLM credit balances; auto-refill if needed",
+      "interval_seconds": 60
+    },
+    "trading_signal_generation": {
+      "description": "Generate trade signals using LLM; execute if confidence high",
+      "interval_seconds": 300
+    },
+    "reputation_sync": {
+      "description": "Update trust score and sync to X402 pricing engine",
+      "trigger": "after_each_successful_action"
+    },
+    "revenue_collection": {
+      "description": "Claim token trading fees; credit ledger updates",
+      "interval_seconds": 86400
+    },
+    "research_report": {
+      "description": "Generate daily analytics report if credits available",
+      "schedule": "daily"
+    }
+  },
+  "multi_agent_coordination": {
+    "enabled": false,
+    "future": "Can coordinate with other agents via x402 services"
+  },
+  "onchain_verifiability": {
+    "all_interactions_logged": true,
+    "transaction_evidence": true,
+    "reputation_updates_onchain": true,
+    "validation_records_onchain": true,
+    "viewable_on_explorer": true
+  },
+  "bankr_integration": {
+    "llm_gateway": true,
+    "agent_api": true,
+    "wallet_funding_loop": true,
+    "token_launch_ready": true
+  },
+  "metadata": {
+    "author": "OpenClaw Agent",
+    "created_at": "2026-03-18T06:22:00Z",
+    "tags": ["erc8004", "autonomous", "bankr", "x402", "self-sustaining", "synthesis-hackathon"],
+    "synthesis_participant_id": "8ace49927da1411297f6f179f06bb680",
+    "team_id": "96ba92287b26414b98bb4ba90f424139"
+  }
+}

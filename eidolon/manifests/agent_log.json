@@ -1,0 +1,15 @@
+{
+  "agent": "εἴδωλον",
+  "version": "0.1.0",
+  "started_at": "2026-03-18T06:22:00Z",
+  "loop_iterations": 0,
+  "logs": [],
+  "events": [],
+  "summary": {
+    "total_trades": 0,
+    "revenue_usd": 0,
+    "reputation_score": null,
+    "llm_credits_used": 0,
+    "x402_payments_received": 0
+  }
+}

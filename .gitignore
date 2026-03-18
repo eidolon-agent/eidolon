@@ -1,0 +1,40 @@
+# Node modules
+node_modules/
+agent/node_modules/
+contracts/lib/
+contracts/out/
+contracts/cache/
+contracts/coverage/
+contracts/typechain/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+out/
+
+# Logs
+*.log
+manifests/agent_log.json  # runtime-generated
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# OpenClaw state
+.openclaw/
+.skills/
+memory/  # keep .gitkeep if needed but logs are daily
+
+# Temporary
+tmp/
+temp/

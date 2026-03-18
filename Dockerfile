@@ -33,6 +33,9 @@ COPY --from=builder --chown=nodeuser:nodejs /app/node_modules ./node_modules
 # Create data directory for x402 persistence
 RUN mkdir -p /app/data && chown nodeuser:nodejs /app/data
 
+# Copy public assets (dashboard)
+COPY --chown=nodeuser:nodejs eidolon/agent/public ./public
+
 # Copy OpenClaw agent skills (needed for ethskills, image-hosting, etc.)
 COPY --chown=nodeuser:nodejs ./.agents ./../.agents
 

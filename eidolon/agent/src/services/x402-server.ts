@@ -134,8 +134,8 @@ export class X402Server extends EventEmitter {
     this.ledger.setMaxDebt(config.maxDebt);
     this.app = express();
     this.app.use(express.json());
-    // Serve static dashboard from public directory
-    this.app.use(express.static(path.join(__dirname, '../../public')));
+    // Serve static dashboard from public directory (dist/services/../.. = /app)
+    this.app.use(express.static(path.join(__dirname, '../public')));
     this.trustScore = 500; // default trust score
     this.setupRoutes();
   }

@@ -38,3 +38,5 @@ memory/  # keep .gitkeep if needed but logs are daily
 # Temporary
 tmp/
 temp/
+token-strategist/
+eidolon/agent/scripts/*.json

@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import * as path from 'path';
 // import { X402 } from 'x402'; // not needed for header-based x402
 // import { Wanpot } from 'wanpot'; // optional, not used in this implementation
 import { BankrClient } from '../core/bankr-client';
@@ -133,6 +134,8 @@ export class X402Server extends EventEmitter {
     this.ledger.setMaxDebt(config.maxDebt);
     this.app = express();
     this.app.use(express.json());
+    // Serve static dashboard from public directory
+    this.app.use(express.static(path.join(__dirname, '../../public')));
     this.trustScore = 500; // default trust score
     this.setupRoutes();
   }
@@ -278,7 +281,33 @@ export class X402Server extends EventEmitter {
       }
     });
 
-    // Root page for demo
+    // Stats endpoint (JSON)
+    this.app.get('/stats', async (req: Request, res: Response) => {
+      const clients = this.ledger.getAllClients();
+      let totalBalance = 0;
+      let totalDebt = 0;
+      const clientStats: Array<{id: string; balance: number; debt: number}> = [];
+      for (const c of clients) {
+        const bal = this.ledger.getBalance(c);
+        const debt = this.ledger.getDebt(c);
+        totalBalance += bal;
+        totalDebt += debt;
+        clientStats.push({ id: c, balance: bal, debt });
+      }
+      res.json({
+        trustScore: this.trustScore,
+        clientCount: clients.length,
+        totalBalance,
+        totalDebt,
+        netPosition: totalBalance - totalDebt,
+        clients: clientStats,
+        pricing: this.config.pricing,
+        paymentAddress: this.config.paymentAddress,
+        uptime: process.uptime(),
+      });
+    });
+
+    // Root page
     this.app.get('/', (req: Request, res: Response) => {
       const html = `<!DOCTYPE html>
 <html>
@@ -294,6 +323,7 @@ export class X402Server extends EventEmitter {
   <h2>Endpoints</h2>
   <ul>
     <li><a href="/health">/health</a> — Health check</li>
+    <li><a href="/dashboard">/dashboard</a> — Live stats (x402, treasury)</li>
     <li><code>GET /signals/price/:token</code> — Price signal (x402)</li>
     <li><code>GET /reports/daily</code> — Daily report (x402)</li>
     <li><code>POST /copilot/chat</code> — Chat (x402)</li>

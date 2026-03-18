@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Eidolon Dashboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --card: #1a1a1a;
+      --text: #e0e0e0;
+      --muted: #888;
+      --accent: #00d4ff;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #333;
+    }
+    h1 { font-size: 1.8rem; letter-spacing: -0.5px; }
+    .badge { background: var(--accent); color: #000; padding: 4px 12px; border-radius: 99px; font-size: 0.8rem; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .card {
+      background: var(--card); border-radius: 12px; padding: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+    }
+    .card h2 { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .metric { font-size: 2rem; font-weight: 700; margin-bottom: 4px; }
+    .metric.sub { font-size: 1rem; color: var(--muted); }
+    .positive { color: var(--success); }
+    .negative { color: var(--danger); }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #333; }
+    th { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; }
+    .footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 30px; }
+    .refresh { font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏛️ Eidolon Dashboard</h1>
+      <span class="badge" id="status">Running</span>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Trust Score</h2>
+        <div class="metric" id="trustScore">--</div>
+        <div class="sub">ERC-8004 reputation (0-1000)</div>
+      </div>
+      <div class="card">
+        <h2>x402 Clients</h2>
+        <div class="metric" id="clientCount">0</div>
+        <div class="sub">Active client accounts</div>
+      </div>
+      <div class="card">
+        <h2>Treasury Position</h2>
+        <div class="metric positive" id="netPosition">$0.00</div>
+        <div class="sub">Credits issued minus revenue</div>
+      </div>
+      <div class="card">
+        <h2>Uptime</h2>
+        <div class="metric" id="uptime">--</div>
+        <div class="sub">Since last restart</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Client Balances & Debts</h2>
+      <table id="clientsTable">
+        <thead><tr><th>Client ID</th><th>Balance (USDC)</th><th>Debt (USDC)</th><th>Net</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="refresh" id="noClients">No clients yet.</p>
+    </div>
+
+    <div class="card">
+      <h2>x402 Pricing</h2>
+      <table id="pricingTable">
+        <thead><tr><th>Endpoint</th><th>Price (USDC)</th><th>Description</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <p class="footer">
+      Built with OpenClaw • <a href="https://github.com/eidolon-agent/eidolon" target="_blank">GitHub</a> • <a href="/" target="_blank">API Docs</a>
+    </p>
+  </div>
+
+  <script>
+    async function fetchStats() {
+      try {
+        const res = await fetch('/stats');
+        if (!res.ok) throw new Error('Failed to fetch stats');
+        const data = await res.json();
+        document.getElementById('trustScore').textContent = data.trustScore;
+        document.getElementById('clientCount').textContent = data.clientCount;
+        document.getElementById('netPosition').textContent = '$' + data.netPosition.toFixed(2);
+        document.getElementById('uptime').textContent = formatUptime(data.uptime);
+
+        const tbody = document.querySelector('#clientsTable tbody');
+        tbody.innerHTML = '';
+        if (data.clients.length === 0) {
+          document.getElementById('noClients').style.display = 'block';
+        } else {
+          document.getElementById('noClients').style.display = 'none';
+          data.clients.forEach(c => {
+            const net = c.balance - c.debt;
+            const row = `<tr>
+              <td><code>${c.id.substring(0, 12)}...</code></td>
+              <td class="${c.balance > 0 ? 'positive' : ''}">$${c.balance.toFixed(2)}</td>
+              <td class="${c.debt > 0 ? 'negative' : ''}">$${c.debt.toFixed(2)}</td>
+              <td class="${net >= 0 ? 'positive' : 'negative'}">$${net.toFixed(2)}</td>
+            </tr>`;
+            tbody.innerHTML += row;
+          });
+        }
+
+        const pricingTbody = document.querySelector('#pricingTable tbody');
+        pricingTbody.innerHTML = '';
+        Object.entries(data.pricing).forEach(([endpoint, pricing]) => {
+          pricingTbody.innerHTML += `<tr>
+            <td><code>${endpoint}</code></td>
+            <td>$${pricing.priceUSD.toFixed(2)}</td>
+            <td>${pricing.description}</td>
+          </tr>`;
+        });
+      } catch (err) {
+        console.error('Failed to update dashboard:', err);
+      }
+    }
+
+    function formatUptime(seconds) {
+      const hrs = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      const secs = Math.floor(seconds % 60);
+      if (hrs > 0) return \`\${hrs}h \${mins}m\`;
+      if (mins > 0) return \`\${mins}m \${secs}s\`;
+      return \`\${secs}s\`;
+    }
+
+    fetchStats();
+    setInterval(fetchStats, 5000);
+  </script>
+</body>
+</html>

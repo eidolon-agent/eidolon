@@ -6,6 +6,7 @@ import { TradingCopilot } from '../services/trading-copilot';
 import { TokenCopilot } from '../services/token-copilot';
 import { ResearchCopilot } from '../services/research-copilot';
 import { X402Server } from '../services/x402-server';
+import { EthereumKnowledgeService } from '../services/ethereum-knowledge';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface EidolonConfig {
@@ -31,6 +32,7 @@ export interface EidolonConfig {
     paymentAddress: string;
     pricing: Record<string, { priceUSD: number; description: string }>;
     maxDebt: number;
+    dataDir?: string; // optional directory for x402 persistence
   };
   network: {
     rpcUrl: string;
@@ -53,6 +55,7 @@ export class EidolonOrchestrator extends EventEmitter {
   private token: TokenCopilot;
   private research: ResearchCopilot;
   private x402: X402Server;
+  private ethKnowledge!: EthereumKnowledgeService; // definite assignment assertion
   private running: boolean = false;
   private loopInterval: NodeJS.Timeout | null = null;
 
@@ -83,8 +86,11 @@ export class EidolonOrchestrator extends EventEmitter {
       config.network.rpcUrl
     );
 
+    // Ethereum knowledge service (must be initialized before copilots)
+    this.ethKnowledge = new EthereumKnowledgeService();
+
     // Copilots
-    this.trading = new TradingCopilot(this.bankr, config.agent.llmModel);
+    this.trading = new TradingCopilot(this.bankr, config.agent.llmModel, this.ethKnowledge);
     this.token = new TokenCopilot(this.bankr);
     this.research = new ResearchCopilot(this.bankr, config.agent.llmModel);
 
@@ -95,6 +101,7 @@ export class EidolonOrchestrator extends EventEmitter {
         paymentAddress: config.x402.paymentAddress,
         pricing: config.x402.pricing,
         maxDebt: config.x402.maxDebt,
+        dataDir: config.x402.dataDir,
       },
       this.bankr
     );
@@ -133,13 +140,23 @@ export class EidolonOrchestrator extends EventEmitter {
       return;
     }
 
+    if (!this.reputation.isEnabled()) {
+      this.emit('log', '[Eidolon] ERC-8004 not configured. Skipping identity registration.');
+      return;
+    }
+
     this.emit('log', '[Eidolon] Registering ERC-8004 identity...');
-    const agentId = await this.reputation.registerAgent(
-      this.config.agent.name,
-      this.config.agent.description,
-      this.config.agent.capabilities
-    );
-    this.emit('log', `[Eidolon] Agent registered with ID ${agentId.toString()}`);
+    try {
+      const agentId = await this.reputation.registerAgent(
+        this.config.agent.name,
+        this.config.agent.description,
+        this.config.agent.capabilities
+      );
+      this.emit('log', `[Eidolon] Agent registered with ID ${agentId.toString()}`);
+    } catch (err: any) {
+      this.emit('error', `Failed to register ERC-8004 identity: ${err.message}`);
+      // Continue running; reputation features will be limited
+    }
   }
 
   async start() {

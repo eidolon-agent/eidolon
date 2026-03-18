@@ -74,6 +74,7 @@ function validateConfig(): EidolonConfig {
         },
       },
       maxDebt: parseFloat(process.env.MAX_DEBT || '50'),
+      dataDir: process.env.DATA_DIR,
     },
     network: {
       rpcUrl: process.env.NETWORK_RPC_URL!,

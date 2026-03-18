@@ -1,29 +1,47 @@
 import express, { Request, Response } from 'express';
-import { X402 } from 'x402';
-import { Wanpot } from 'wanpot'; // or a simple in-memory implementation if no Wanpot
-// If x402 doesn't have a direct Wanpot class, we'll use a simple credit system
+// import { X402 } from 'x402'; // not needed for header-based x402
+// import { Wanpot } from 'wanpot'; // optional, not used in this implementation
 import { BankrClient } from '../core/bankr-client';
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
 
+// Extend Express Request to include x402Required
+interface X402Request extends Request {
+  x402Required?: number;
+}
+
 export interface Pricing {
   priceUSD: number;
-  currency: 'USDC' | 'ETH' | 'BNKR';
   description: string;
+  currency?: 'USDC' | 'ETH' | 'BNKR'; // optional, defaults to USDC
 }
 
 export interface X402Config {
   port: number;
   paymentAddress: string;
   pricing: Record<string, Pricing>;
-  trustScoreWeight: number; // 0-1, how much ERC-8004 trust influences price
-  maxDebt: number; // max outstanding debt per client (in USD)
+  maxDebt: number;
+  trustScoreWeight?: number; // optional, 0-1, how much ERC-8004 trust influences price
+  dataDir?: string; // optional directory for persistence
 }
 
-// Simple in-memory credit ledger for x402 payments
+// Simple in-memory credit ledger for x402 payments with file persistence
 class CreditLedger {
   private balances: Map<string, number> = new Map(); // clientId -> credit balance (USDC)
   private debts: Map<string, number> = new Map(); // clientId -> debt (negative balance allowed up to limit)
+  private maxDebt: number = 100; // default max debt per client (USD)
+  private persistencePath?: string;
+
+  constructor(persistencePath?: string) {
+    this.persistencePath = persistencePath;
+    if (persistencePath) {
+      this.load();
+    }
+  }
+
+  setMaxDebt(max: number) {
+    this.maxDebt = max;
+  }
 
   async hasSufficientFunds(clientId: string, cost: number): Promise<boolean> {
     const balance = this.balances.get(clientId) || 0;
@@ -34,12 +52,14 @@ class CreditLedger {
     const balance = this.balances.get(clientId) || 0;
     if (balance >= cost) {
       this.balances.set(clientId, balance - cost);
+      this.save();
       return true;
     }
     // allow debt
     const currentDebt = this.debts.get(clientId) || 0;
     if (currentDebt + cost <= this.maxDebt) {
       this.debts.set(clientId, currentDebt + cost);
+      this.save();
       return true;
     }
     return false;
@@ -48,10 +68,7 @@ class CreditLedger {
   async credit(clientId: string, amount: number) {
     const current = this.balances.get(clientId) || 0;
     this.balances.set(clientId, current + amount);
-  }
-
-  setMaxDebt(max: number) {
-    this.maxDebt = max;
+    this.save();
   }
 
   getBalance(clientId: string): number {
@@ -60,6 +77,43 @@ class CreditLedger {
 
   getDebt(clientId: string): number {
     return this.debts.get(clientId) || 0;
+  }
+
+  // Persistence
+  private load() {
+    if (!this.persistencePath) return;
+    try {
+      const data = require('fs').readFileSync(this.persistencePath, 'utf8');
+      const parsed = JSON.parse(data);
+      this.balances = new Map(Object.entries(parsed.balances || {}));
+      this.debts = new Map(Object.entries(parsed.debts || {}));
+      console.log(`[CreditLedger] Loaded persisted data from ${this.persistencePath} (${Object.keys(this.balances).length} clients)`);
+    } catch (err) {
+      // File doesn't exist or invalid, start fresh
+      console.log('[CreditLedger] No persisted data found, starting fresh');
+    }
+  }
+
+  private save() {
+    if (!this.persistencePath) return;
+    try {
+      const data = {
+        balances: Object.fromEntries(this.balances),
+        debts: Object.fromEntries(this.debts),
+        updatedAt: new Date().toISOString(),
+      };
+      require('fs').writeFileSync(this.persistencePath, JSON.stringify(data, null, 2));
+    } catch (err) {
+      console.error('[CreditLedger] Failed to persist data:', err);
+    }
+  }
+
+  // Expose for debugging
+  getAllClients() : string[] {
+    const clients = new Set<string>();
+    this.balances.forEach((_, id) => clients.add(id));
+    this.debts.forEach((_, id) => clients.add(id));
+    return Array.from(clients);
   }
 }
 
@@ -74,10 +128,12 @@ export class X402Server extends EventEmitter {
     super();
     this.config = config;
     this.bankr = bankr;
-    this.ledger = new CreditLedger();
+    const ledgerPath = config.dataDir ? `${config.dataDir}/ledger.json` : undefined;
+    this.ledger = new CreditLedger(ledgerPath);
     this.ledger.setMaxDebt(config.maxDebt);
     this.app = express();
     this.app.use(express.json());
+    this.trustScore = 500; // default trust score
     this.setupRoutes();
   }
 
@@ -92,8 +148,9 @@ export class X402Server extends EventEmitter {
     return Math.max(0.01, basePrice * factor);
   }
 
-  private async requirePayment(req: Request, endpoint: string): Promise<boolean> {
-    const clientId = req.headers['x-client-id'] as string || req.ip;
+  private async requirePayment(req: X402Request, endpoint: string): Promise<boolean> {
+    const rawClientId = req.headers['x-client-id'];
+    const clientId = typeof rawClientId === 'string' ? rawClientId : (req.ip || 'unknown');
     const pricing = this.config.pricing[endpoint];
     if (!pricing) {
       this.emit('error', `No pricing defined for endpoint ${endpoint}`);
@@ -120,15 +177,15 @@ export class X402Server extends EventEmitter {
 
   private setupRoutes() {
     // Health check (free)
-    this.app.get('/health', (req: Request, res: Response) => {
+    this.app.get('/health', (req: X402Request, res: Response) => {
       res.json({ status: 'ok', trustScore: this.trustScore, timestamp: new Date() });
     });
 
     // Example endpoint: price signal
-    this.app.get('/signals/price/:token', async (req: Request, res: Response) => {
+    this.app.get('/signals/price/:token', async (req: X402Request, res: Response) => {
       const endpoint = '/signals/price/:token';
       if (!(await this.requirePayment(req, endpoint))) {
-        const amount = (req as any).x402Required;
+        const amount = req.x402Required;
         res.set('X-402-Payment-Required', `${amount} USDC`);
         res.set('X-402-Payment-Address', this.config.paymentAddress);
         res.set('X-402-Payment-Description', this.config.pricing[endpoint]?.description || 'Access to price signals');
@@ -149,10 +206,10 @@ export class X402Server extends EventEmitter {
     });
 
     // Daily report
-    this.app.get('/reports/daily', async (req: Request, res: Response) => {
+    this.app.get('/reports/daily', async (req: X402Request, res: Response) => {
       const endpoint = '/reports/daily';
       if (!(await this.requirePayment(req, endpoint))) {
-        const amount = (req as any).x402Required;
+        const amount = req.x402Required;
         res.set('X-402-Payment-Required', `${amount} USDC`);
         res.set('X-402-Payment-Address', this.config.paymentAddress);
         res.set('X-402-Payment-Description', this.config.pricing[endpoint]?.description || 'Daily analytics report');
@@ -177,10 +234,10 @@ export class X402Server extends EventEmitter {
     });
 
     // Copilot chat endpoint
-    this.app.post('/copilot/chat', async (req: Request, res: Response) => {
+    this.app.post('/copilot/chat', async (req: X402Request, res: Response) => {
       const endpoint = '/copilot/chat';
       if (!(await this.requirePayment(req, endpoint))) {
-        const amount = (req as any).x402Required;
+        const amount = req.x402Required;
         res.set('X-402-Payment-Required', `${amount} USDC`);
         res.set('X-402-Payment-Address', this.config.paymentAddress);
         res.set('X-402-Payment-Description', this.config.pricing[endpoint]?.description || 'Copilot chat per message');
@@ -199,7 +256,7 @@ export class X402Server extends EventEmitter {
     });
 
     // Webhook for on-chain payments to credit accounts (requires off-chain signature or contract event)
-    this.app.post('/webhook/credit', async (req: Request, res: Response) => {
+    this.app.post('/webhook/credit', async (req: X402Request, res: Response) => {
       // In reality, verify signature from Bankr or on-chain event
       const { clientId, amount } = req.body;
       if (!clientId || !amount) {
@@ -211,7 +268,7 @@ export class X402Server extends EventEmitter {
     });
 
     // Admin endpoint to adjust trust score (for reputation updates)
-    this.app.post('/admin/trust-score', async (req: Request, res: Response) => {
+    this.app.post('/admin/trust-score', async (req: X402Request, res: Response) => {
       const { score } = req.body;
       if (typeof score === 'number') {
         this.setTrustScore(score);

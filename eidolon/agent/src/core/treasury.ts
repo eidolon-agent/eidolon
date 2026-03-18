@@ -66,7 +66,7 @@ export class TreasuryManager extends EventEmitter {
     usdcBalance: number;
     credits: number;
     healthy: boolean;
-    actions?: string[];
+    actions: string[];
   }> {
     const [usdc, credits] = await Promise.all([
       this.getUSDCBalance(),

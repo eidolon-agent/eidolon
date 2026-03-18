@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw/skill-image-hosting",
+  "version": "0.1.0",
+  "description": "Upload images to img402.dev and get public URLs",
+  "main": "index.js",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0"
+  },
+  "author": "OpenClaw Agent",
+  "license": "MIT"
+}

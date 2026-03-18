@@ -1,5 +1,4 @@
 import axios, { AxiosInstance } from 'axios';
-import { AgentJob } from './types';
 
 /**
  * BankrClient handles communication with both:

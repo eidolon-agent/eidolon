@@ -1,0 +1,117 @@
+{
+  "log_version": "1.0.0",
+  "agent_id": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "session_id": "auto-generated-uuid",
+  "operator_wallet": "0x0000000000000000000000000000000000000000",
+  "loop_iteration": 0,
+  "timestamp": "2025-03-17T06:13:00.000Z",
+  "loop_phases": {
+    "planning": {
+      "timestamp": "2025-03-17T06:13:00.000Z",
+      "input_task": "string",
+      "analyzed_capabilities": ["capability_hash_1", "capability_hash_2"],
+      "execution_plan": {
+        "steps": [
+          {
+            "step_id": 1,
+            "description": "string",
+            "required_capabilities": ["hash"],
+            "assigned_agent": "bytes32_agent_id",
+            "dependencies": [],
+            "expected_outcome": "string"
+          }
+        ],
+        "estimated_duration_seconds": 300,
+        "required_agents": ["agent_id_1", "agent_id_2"],
+        "fallback_strategy": "string"
+      },
+      "confidence_score": 850,
+      "plan_id": "unique_plan_hash"
+    },
+    "execution": {
+      "timestamp": "2025-03-17T06:13:05.000Z",
+      "execution_plan_id": "plan_hash",
+      "actions_taken": [
+        {
+          "action_id": 1,
+          "type": "transaction|delegation|validation|communication",
+          "target_agent": "bytes32_agent_id",
+          "transaction_hash": "0x...",
+          "data": {},
+          "status": "pending|success|failed",
+          "duration_ms": 1500,
+          "gas_used": 125000,
+          "onchain_logs": ["event_signature"]
+        }
+      ],
+      "interactions_logged": [
+        {
+          "from_agent": "bytes32",
+          "to_agent": "bytes32",
+          "interaction_type": "capability_request|validation|delegation",
+          "transaction_hash": "0x...",
+          "evidence_hash": "0x...",
+          "timestamp": "2025-03-17T06:13:06.000Z"
+        }
+      ],
+      "total_gas_used": 250000,
+      "onchain_transactions": ["0xtx1", "0xtx2"]
+    },
+    "verification": {
+      "timestamp": "2025-03-17T06:13:30.000Z",
+      "verification_method": "onchain_proof|multi_sig|reputation_check",
+      "outcome": "success|partial|failure",
+      "evidence_collected": [
+        {
+          "type": "transaction_receipt|event_log|offchain_proof",
+          "hash": "0x...",
+          "source": "blockchain|oracle|agent",
+          "valid": true,
+          "details": {}
+        }
+      ],
+      "integrity_score_delta": 5,
+      "validation_notes": "string"
+    },
+    "reputation_update": {
+      "timestamp": "2025-03-17T06:13:35.000Z",
+      "self_update": {
+        "performance_delta": 2,
+        "reliability_delta": 1,
+        "integrity_delta": 0,
+        "reason": "successful_task_completion"
+      },
+      "peer_updates": [
+        {
+          "peer_agent_id": "bytes32",
+          "performance_delta": 3,
+          "reliability_delta": 2,
+          "reason": "reliable_agent_in_interaction"
+        }
+      ],
+      "transaction_hashes": ["0x..."],
+      "updated_scores": {
+        "overall": 875,
+        "performance": 890,
+        "reliability": 880,
+        "integrity": 850
+      }
+    }
+  },
+  "summary": {
+    "loop_success": true,
+    "composite_trust_score_after": 875,
+    "new_capabilities_acquired": ["new_capability_hash"],
+    "key_events": ["event_description"],
+    "errors_encountered": [],
+    "warnings": []
+  },
+  "next_actions": [
+    {
+      "type": "delegate_task|request_validation|update_reputation",
+      "target": "agent_id_or_capability",
+      "priority": 1,
+      "estimated_duration": 120
+    }
+  ]
+}

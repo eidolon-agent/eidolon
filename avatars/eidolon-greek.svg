@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Marble-like texture -->
+    <filter id="marble">
+      <feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="3" result="noise"/>
+      <feDiffuseLighting in="noise" lighting-color="white" surfaceScale="1">
+        <feDistantLight azimuth="45" elevation="60"/>
+      </feDiffuseLighting>
+    </filter>
+    
+    <!-- Gold gradient -->
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f7e98e;stop-opacity:1"/>
+      <stop offset="50%" style="stop-color:#d4af37;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#b8860b;stop-opacity:1"/>
+    </linearGradient>
+    
+    <!-- Deep blue gradient -->
+    <linearGradient id="deepblue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a3a6c;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#0d1b2a;stop-opacity:1"/>
+    </linearGradient>
+    
+    <!-- Glow for active elements -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background: marble effect with deep blue -->
+  <rect width="512" height="512" fill="#0d1b2a"/>
+  <rect width="512" height="512" fill="url(#deepblue)" opacity="0.9"/>
+  
+  <!-- Greek key border pattern -->
+  <g stroke="url(#gold)" stroke-width="4" fill="none" opacity="0.7">
+    <path d="M40,40 L472,40 L472,472 L40,472 Z" stroke-dasharray="20,10,5,10"/>
+    <!-- Greek key repeats -->
+    <path d="M40,60 L80,60 L80,80 L40,80 M120,60 L160,60 L160,80 L120,80 M200,60 L240,60 L240,80 L200,80 M280,60 L320,60 L320,80 L280,80 M360,60 L400,60 L400,80 L360,80 M440,60 L472,60" stroke-width="2"/>
+    <path d="M472,120 L472,160 L452,160 L452,120 M472,200 L472,240 L452,240 L452,200 M472,280 L472,320 L452,320 L452,280 M472,360 L472,400 L452,400 L452,360" stroke-width="2"/>
+    <path d="M432,40 L432,80 L472,80 L472,40 M432,120 L432,160 L472,160 L472,120 M432,200 L432,240 L472,240 L472,200 M432,280 L432,320 L472,320 L472,280 M432,360 L432,400 L472,400 L472,360" stroke-width="2"/>
+  </g>
+  
+  <!-- Central column/obelisk shape (Greek temple reference) -->
+  <g filter="url(#marble)">
+    <rect x="206" y="80" width="100" height="352" rx="5" fill="url(#gold)" opacity="0.3"/>
+  </g>
+  
+  <!-- Doric capital at top -->
+  <path d="M186,80 L186,110 L326,110 L326,80 Z" fill="url(#gold)" opacity="0.8"/>
+  <rect x="186" y="110" width="140" height="20" fill="url(#gold)" opacity="0.9"/>
+  
+  <!-- Fluting (vertical grooves) on column -->
+  <g stroke="url(#gold)" stroke-width="1" opacity="0.4">
+    <line x1="216" y1="130" x2="216" y2="410"/>
+    <line x1="236" y1="130" x2="236" y2="410"/>
+    <line x1="256" y1="130" x2="256" y2="410"/>
+    <line x1="276" y1="130" x2="276" y2="410"/>
+    <line x1="296" y1="130" x2="296" y2="410"/>
+    <line x1="316" y1="130" x2="316" y2="410"/>
+  </g>
+  
+  <!-- Circuit-like patterns overlay (AI aspect) -->
+  <g stroke="#00ffff" stroke-width="0.5" fill="none" opacity="0.6">
+    <path d="M150,150 L180,150 L200,130 L220,130 L240,150 L270,150"/>
+    <path d="M242,150 L242,180 L262,200 L282,200 L302,180 L302,150"/>
+    <path d="M362,150 L332,150 L312,130 L292,130 L272,150 L242,150"/>
+    <path d="M150,362 L180,362 L200,382 L220,382 L240,362 L270,362"/>
+    <path d="M242,362 L242,332 L262,312 L282,312 L302,332 L302,362"/>
+    <path d="M362,362 L332,362 L312,382 L292,382 L272,362 L242,362"/>
+    <!-- Connection nodes -->
+    <circle cx="150" cy="150" r="2" fill="#00ffff"/>
+    <circle cx="270" cy="150" r="2" fill="#00ffff"/>
+    <circle cx="302" cy="150" r="2" fill="#00ffff"/>
+    <circle cx="150" cy="362" r="2" fill="#00ffff"/>
+    <circle cx="270" cy="362" r="2" fill="#00ffff"/>
+    <circle cx="302" cy="362" r="2" fill="#00ffff"/>
+  </g>
+  
+  <!-- Greek letter epsilon (ε) in classical style -->
+  <text x="256" y="290" font-family="'Times New Roman', 'Georgia', serif" font-size="160" font-weight="bold" fill="url(#gold)" text-anchor="middle" dominant-baseline="middle" filter="url(#glow)">ε</text>
+  
+  <!-- Laurel wreath (olive branches) on sides -->
+  <g fill="url(#gold)" opacity="0.8">
+    <!-- Left branch -->
+    <path d="M120,180 Q100,200 120,220 Q100,240 120,260 Q100,280 120,300 Q110,320 130,340"/>
+    <path d="M120,180 Q110,190 100,200"/>
+    <path d="M120,260 Q110,270 100,280"/>
+    <path d="M120,340 Q115,350 105,360"/>
+    <!-- Leaves -->
+    <ellipse cx="130" cy="200" rx="6" ry="3" transform="rotate(-20 130 200)"/>
+    <ellipse cx="110" cy="240" rx="6" ry="3" transform="rotate(30 110 240)"/>
+    <ellipse cx="130" cy="280" rx="6" ry="3" transform="rotate(-20 130 280)"/>
+    <ellipse cx="108" cy="320" rx="6" ry="3" transform="rotate(25 108 320)"/>
+    
+    <!-- Right branch (mirrored) -->
+    <path d="M392,180 Q412,200 392,220 Q412,240 392,260 Q412,280 392,300 Q402,320 382,340"/>
+    <path d="M392,180 Q402,190 412,200"/>
+    <path d="M392,260 Q402,270 412,280"/>
+    <path d="M392,340 Q397,350 407,360"/>
+    <!-- Leaves -->
+    <ellipse cx="382" cy="200" rx="6" ry="3" transform="rotate(20 382 200)"/>
+    <ellipse cx="402" cy="240" rx="6" ry="3" transform="rotate(-30 402 240)"/>
+    <ellipse cx="382" cy="280" rx="6" ry="3" transform="rotate(20 382 280)"/>
+    <ellipse cx="404" cy="320" rx="6" ry="3" transform="rotate(-25 404 320)"/>
+  </g>
+  
+  <!-- Subtle data streams (binary code in Greek-looking pattern) -->
+  <g font-family="monospace" font-size="6" fill="#00ffff" opacity="0.3">
+    <text x="70" y="150">01001</text>
+    <text x="442" y="150">10110</text>
+    <text x="70" y="370">00101</text>
+    <text x="442" y="370">11001</text>
+  </g>
+  
+  <!-- Bottom Greek key (meander) -->
+  <path d="M100,440 L150,440 L150,460 L100,460 M150,440 L200,440 L200,460 L150,460 M250,440 L300,440 L300,460 L250,460 M350,440 L400,440 L400,460 L350,460" stroke="url(#gold)" stroke-width="2" fill="none" opacity="0.7"/>
+</svg>

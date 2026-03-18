@@ -1,0 +1,8 @@
+{
+  "name": "@openclaw/skill-ethskills",
+  "version": "1.0.0",
+  "description": "Ethereum knowledge base for AI agents: gas, wallets, L2s, standards, security, and more",
+  "main": "index.js",
+  "author": "OpenClaw Agent",
+  "license": "MIT"
+}

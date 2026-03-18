@@ -38,23 +38,44 @@ export interface ValidationResult {
 
 export class ReputationManager extends EventEmitter {
   private provider: ethers.providers.JsonRpcProvider;
-  private identityRegistry: ethers.Contract;
-  private reputationRegistry: ethers.Contract;
-  private validationRegistry: ethers.Contract;
+  private identityRegistry: ethers.Contract | null = null;
+  private reputationRegistry: ethers.Contract | null = null;
+  private validationRegistry: ethers.Contract | null = null;
   private operatorWallet: string;
   private agentId: bigint | null = null;
+  private enabled: boolean = false; // Set to false if registries not configured
 
   constructor(config: ERC8004Config, rpcUrl: string) {
     super();
     this.provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-    this.identityRegistry = new ethers.Contract(config.identityRegistry, IDENTITY_REGISTRY_ABI, this.provider);
-    this.reputationRegistry = new ethers.Contract(config.reputationRegistry, REPUTATION_REGISTRY_ABI, this.provider);
-    this.validationRegistry = new ethers.Contract(config.validationRegistry, VALIDATION_REGISTRY_ABI, this.provider);
     this.operatorWallet = config.operatorWallet;
+
+    // Only initialize contracts if addresses are provided and look valid
+    if (config.identityRegistry && config.identityRegistry !== '0x0000000000000000000000000000000000000000') {
+      try {
+        this.identityRegistry = new ethers.Contract(config.identityRegistry, IDENTITY_REGISTRY_ABI, this.provider);
+        this.reputationRegistry = new ethers.Contract(config.reputationRegistry, REPUTATION_REGISTRY_ABI, this.provider);
+        this.validationRegistry = new ethers.Contract(config.validationRegistry, VALIDATION_REGISTRY_ABI, this.provider);
+        this.enabled = true;
+        console.log('[Reputation] ERC-8004 contracts initialized');
+      } catch (err) {
+        console.warn('[Reputation] Failed to initialize ERC-8004 contracts. Running without reputation integration.');
+        this.enabled = false;
+      }
+    } else {
+      console.warn('[Reputation] No ERC-8004 registry addresses provided. Reputation features disabled.');
+    }
+  }
+
+  isEnabled(): boolean {
+    return this.enabled;
   }
 
   // Register the agent on-chain if not already
   async registerAgent(name: string, description: string, capabilities: string[]): Promise<bigint> {
+    if (!this.enabled || !this.identityRegistry) {
+      throw new Error('ERC-8004 not enabled: registry addresses missing');
+    }
     if (this.agentId) {
       throw new Error('Agent already registered');
     }
@@ -78,6 +99,9 @@ export class ReputationManager extends EventEmitter {
 
   // Get current reputation score (0-1000)
   async getReputationScore(): Promise<number> {
+    if (!this.enabled || !this.reputationRegistry) {
+      return 500; // Default neutral score when disabled
+    }
     if (!this.agentId) throw new Error('Agent not registered');
     const rep = await this.reputationRegistry.getAgentReputation(this.agentId);
     return Number(rep.score);
@@ -85,6 +109,9 @@ export class ReputationManager extends EventEmitter {
 
   // Request validation for a capability (via validation registry)
   async requestValidation(capability: string, dataHash: string = ethers.constants.HashZero, timeoutHours: number = 24): Promise<bigint> {
+    if (!this.enabled || !this.validationRegistry) {
+      throw new Error('ERC-8004 not enabled: validation registry missing');
+    }
     if (!this.agentId) throw new Error('Agent not registered');
     const capabilityHash = ethers.utils.id(capability);
     const timeout = Math.floor(Date.now() / 1000) + timeoutHours * 3600;
@@ -98,16 +125,19 @@ export class ReputationManager extends EventEmitter {
 
   // Fulfill a validation request (for validators)
   async fulfillValidation(requestId: bigint, passed: boolean, scoreDelta: number): Promise<void> {
+    if (!this.enabled || !this.validationRegistry) {
+      throw new Error('ERC-8004 not enabled');
+    }
     const signer = this.provider.getSigner(this.operatorWallet);
     const tx = await this.validationRegistry.connect(signer).fulfillValidationRequest(requestId, passed, scoreDelta);
     await tx.wait();
   }
 
   // Record a direct reputation update via reputation registry (if operator can do it)
-  // Actually reputation updates are usually from validation fulfillment or direct updates by registry.
-  // Some frameworks allow the agent itself to record validation of its peers.
   async recordPeerValidation(peerAgentId: bigint, validationId: bigint, passed: boolean, scoreDelta: number): Promise<void> {
-    // This may require permission; assuming operator can call
+    if (!this.enabled || !this.reputationRegistry) {
+      throw new Error('ERC-8004 not enabled: reputation registry missing');
+    }
     const signer = this.provider.getSigner(this.operatorWallet);
     const tx = await this.reputationRegistry.connect(signer).recordValidation(peerAgentId, validationId, passed, scoreDelta);
     await tx.wait();
@@ -115,6 +145,9 @@ export class ReputationManager extends EventEmitter {
 
   // Issue a credential for a capability achievement
   async issueCredential(capability: string, dataHash: string = ethers.constants.HashZero, expiresInDays: number = 365): Promise<string> {
+    if (!this.enabled || !this.validationRegistry) {
+      throw new Error('ERC-8004 not enabled: validation registry missing');
+    }
     if (!this.agentId) throw new Error('Agent not registered');
     const capabilityHash = ethers.utils.id(capability);
     const expiresAt = Math.floor(Date.now() / 1000) + expiresInDays * 86400;
@@ -128,6 +161,9 @@ export class ReputationManager extends EventEmitter {
 
   // Verify a credential exists
   async verifyCredential(capability: string, dataHash: string): Promise<boolean> {
+    if (!this.enabled || !this.validationRegistry) {
+      return false; // Cannot verify without registry
+    }
     if (!this.agentId) throw new Error('Agent not registered');
     const capabilityHash = ethers.utils.id(capability);
     return await this.validationRegistry.verifyCredential(this.agentId, capabilityHash, dataHash);
@@ -136,5 +172,10 @@ export class ReputationManager extends EventEmitter {
   // Set the agent ID after deployment (useful if we deployed separately)
   setAgentId(agentId: bigint) {
     this.agentId = agentId;
+  }
+
+  // Get the agent ID if registered
+  getAgentId(): bigint | null {
+    return this.agentId;
   }
 }

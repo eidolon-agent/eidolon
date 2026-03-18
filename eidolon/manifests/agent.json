@@ -3,6 +3,7 @@
   "name": "εἴδωλον",
   "version": "0.1.0",
   "description": "Self-sustaining autonomous economic agent that earns on-chain revenue to fund its own inference",
+  "avatar": "avatars/eidolon-avatar.svg",
   "capabilities": [
     "trading",
     "token-launch",

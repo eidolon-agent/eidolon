@@ -429,40 +429,50 @@
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const d = await res.json();
 
-        // Metrics
-        document.getElementById('trustScore').textContent = d.trustScore;
-        document.getElementById('clientCount').textContent = d.clientCount;
-        document.getElementById('netPosition').textContent = '$' + d.netPosition.toFixed(2);
-        document.getElementById('uptime').textContent = formatUptime(d.uptime);
+        // Debug: warn if core metrics missing
+        if (typeof d.trustScore !== 'number' || typeof d.clientCount !== 'number' || typeof d.netPosition !== 'number') {
+          console.warn('[Dashboard] /stats payload incomplete or unexpected:', d);
+        }
+
+        // Metrics (with safe defaults)
+        document.getElementById('trustScore').textContent = (typeof d.trustScore === 'number' ? d.trustScore : '--');
+        document.getElementById('clientCount').textContent = (typeof d.clientCount === 'number' ? d.clientCount : '--');
+        document.getElementById('netPosition').textContent = '$' + (typeof d.netPosition === 'number' ? d.netPosition.toFixed(2) : '0.00');
+        document.getElementById('uptime').textContent = formatUptime(typeof d.uptime === 'number' ? d.uptime : 0);
         document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
 
         // On-chain balances (if available)
         const balances = d.onChainBalances || {};
         let usdc=0, eth=0, weth=0;
-        if (balances.balances) {
+        if (Array.isArray(balances.balances)) {
           for (const b of balances.balances) {
-            if (b.currency === 'USDC') usdc = parseFloat(b.balance);
-            if (b.currency === 'ETH') eth = parseFloat(b.balance);
-            if (b.currency === 'WETH') weth = parseFloat(b.balance);
+            if (b.currency === 'USDC') usdc = parseFloat(b.balance) || 0;
+            if (b.currency === 'ETH') eth = parseFloat(b.balance) || 0;
+            if (b.currency === 'WETH') weth = parseFloat(b.balance) || 0;
           }
+        } else {
+          console.warn('[Dashboard] onChainBalances.balances missing or not an array', balances);
         }
-        document.getElementById('usdcBalance').textContent = '$' + usdc.toFixed(2);
-        document.getElementById('ethBalance').textContent = 'Ξ' + eth.toFixed(4);
-        document.getElementById('wethBalance').textContent = 'WETH ' + weth.toFixed(4);
+        document.getElementById('usdcBalance').textContent = '$' + (typeof usdc === 'number' ? usdc.toFixed(2) : '0.00');
+        document.getElementById('ethBalance').textContent = 'Ξ' + (typeof eth === 'number' ? eth.toFixed(4) : '0.0000');
+        document.getElementById('wethBalance').textContent = 'WETH ' + (typeof weth === 'number' ? weth.toFixed(4) : '0.0000');
 
         // Clients
         const tbody = document.querySelector('#clientsTable tbody');
         tbody.innerHTML = '';
-        if (d.clients.length === 0) {
+        const clients = Array.isArray(d.clients) ? d.clients : [];
+        if (clients.length === 0) {
           document.getElementById('noClients').style.display = 'block';
         } else {
           document.getElementById('noClients').style.display = 'none';
-          d.clients.forEach(c => {
-            const net = c.balance - c.debt;
+          clients.forEach(c => {
+            const balance = typeof c.balance === 'number' ? c.balance : 0;
+            const debt = typeof c.debt === 'number' ? c.debt : 0;
+            const net = balance - debt;
             tbody.innerHTML += `<tr>
-              <td><code>${c.id.substring(0,12)}…</code></td>
-              <td class="${c.balance>0?'positive':''}">$${c.balance.toFixed(2)}</td>
-              <td class="${c.debt>0?'negative':''}">$${c.debt.toFixed(2)}</td>
+              <td><code>${c.id?.substring?.(0,12) || c.id || 'unknown'}</code></td>
+              <td class="${balance>0?'positive':''}">$${balance.toFixed(2)}</td>
+              <td class="${debt>0?'negative':''}">$${debt.toFixed(2)}</td>
               <td class="${net>=0?'positive':'negative'}">$${net.toFixed(2)}</td>
             </tr>`;
           });
@@ -471,11 +481,12 @@
         // Pricing
         const pTbody = document.querySelector('#pricingTable tbody');
         pTbody.innerHTML = '';
-        Object.entries(d.pricing).forEach(([ep,p]) => {
+        Object.entries(d.pricing || {}).forEach(([ep,p]) => {
+          const price = typeof p?.priceUSD === 'number' ? p.priceUSD : 0;
           pTbody.innerHTML += `<tr>
             <td><code>${ep}</code></td>
-            <td>$${p.priceUSD.toFixed(2)}</td>
-            <td>${p.description}</td>
+            <td>$${price.toFixed(2)}</td>
+            <td>${p?.description || ''}</td>
           </tr>`;
         });
 
@@ -496,19 +507,19 @@
 
     function updateCharts(d) {
       const nowLabel = new Date().toLocaleTimeString();
-      trustHist.push(d.trustScore);
+      trustHist.push(typeof d.trustScore === 'number' ? d.trustScore : 0);
       if (trustHist.length > maxPoints) trustHist.shift();
       trustChart.data.labels = trustHist.map((_,i)=>i);
       trustChart.data.datasets[0].data = trustHist;
       trustChart.update();
 
-      clientsHist.push(d.clientCount);
+      clientsHist.push(typeof d.clientCount === 'number' ? d.clientCount : 0);
       if (clientsHist.length > maxPoints) clientsHist.shift();
       clientsChart.data.labels = clientsHist.map((_,i)=>i);
       clientsChart.data.datasets[0].data = clientsHist;
       clientsChart.update();
 
-      treasuryHist.push(d.netPosition);
+      treasuryHist.push(typeof d.netPosition === 'number' ? d.netPosition : 0);
       if (treasuryHist.length > maxPoints) treasuryHist.shift();
       treasuryChart.data.labels = treasuryHist.map((_,i)=>i);
       treasuryChart.data.datasets[0].data = treasuryHist;

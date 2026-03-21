@@ -1,12 +1,12 @@
-import { EventEmitter } from 'events';
-import { BankrClient } from '../core/bankr-client';
-import { TreasuryManager } from '../core/treasury';
-import { ReputationManager } from '../core/reputation';
-import { TradingCopilot } from '../services/trading-copilot';
-import { TokenCopilot } from '../services/token-copilot';
-import { ResearchCopilot } from '../services/research-copilot';
-import { X402Server } from '../services/x402-server';
-import { EthereumKnowledgeService } from '../services/ethereum-knowledge';
+import { EventEmitter } from "events";
+import { BankrClient } from "../core/bankr-client";
+import { TreasuryManager } from "../core/treasury";
+import { ReputationManager } from "../core/reputation";
+import { TradingCopilot } from "../services/trading-copilot";
+import { TokenCopilot } from "../services/token-copilot";
+import { ResearchCopilot } from "../services/research-copilot";
+import { X402Server } from "../services/x402-server";
+import { EthereumKnowledgeService } from "../services/ethereum-knowledge";
 
 /* ========================= TYPES ========================= */
 
@@ -14,6 +14,8 @@ export interface EidolonConfig {
   bankr: {
     llmApiKey: string;
     agentApiKey: string;
+    agentBaseUrl?: string;
+    llmBaseUrl?: string;
   };
   treasury: {
     walletAddress: string;
@@ -50,7 +52,7 @@ export interface EidolonConfig {
   };
 }
 
-type LoopState = 'idle' | 'running' | 'error';
+type LoopState = "idle" | "running" | "error";
 
 /* ========================= ORCHESTRATOR ========================= */
 
@@ -71,7 +73,7 @@ export class EidolonOrchestrator extends EventEmitter {
 
   // Runtime state
   private running = false;
-  private loopState: LoopState = 'idle';
+  private loopState: LoopState = "idle";
   private loopTimer?: NodeJS.Timeout;
   private startTime: number = Date.now();
 
@@ -83,6 +85,8 @@ export class EidolonOrchestrator extends EventEmitter {
     this.bankr = new BankrClient({
       llmApiKey: config.bankr.llmApiKey,
       agentApiKey: config.bankr.agentApiKey,
+      llmBaseUrl: config.bankr.llmBaseUrl,
+      agentBaseUrl: config.bankr.agentBaseUrl,
     });
 
     this.ethKnowledge = new EthereumKnowledgeService();
@@ -102,14 +106,14 @@ export class EidolonOrchestrator extends EventEmitter {
         validationRegistry: config.erc8004.validationRegistry,
         operatorWallet: config.erc8004.operatorWallet,
       },
-      config.network.rpcUrl
+      config.network.rpcUrl,
     );
 
     /* ===== Services ===== */
     this.trading = new TradingCopilot(
       this.bankr,
       config.agent.llmModel,
-      this.ethKnowledge
+      this.ethKnowledge,
     );
 
     this.token = new TokenCopilot(this.bankr);
@@ -130,7 +134,7 @@ export class EidolonOrchestrator extends EventEmitter {
       {
         rpcUrl: config.network.rpcUrl,
         tokens: config.treasury.tokens,
-      }
+      },
     );
 
     this.setupEvents();
@@ -145,22 +149,22 @@ export class EidolonOrchestrator extends EventEmitter {
       });
     };
 
-    forward(this.treasury, 'log');
-    forward(this.treasury, 'alert');
-    forward(this.trading, 'trade');
-    forward(this.x402, 'payment');
+    forward(this.treasury, "log");
+    forward(this.treasury, "alert");
+    forward(this.trading, "trade");
+    forward(this.x402, "payment");
   }
 
   /* ========================= START ========================= */
 
   async start(): Promise<void> {
-    this.emit('log', '[Eidolon] Starting system');
+    this.emit("log", "[Eidolon] Starting system");
 
     // 🔥 NEVER BLOCK STARTUP
     try {
       await this.initializeIdentity();
     } catch (err: unknown) {
-      this.emit('error', `[Identity] ${this.getError(err)}`);
+      this.emit("error", `[Identity] ${this.getError(err)}`);
     }
 
     // ALWAYS START SERVER
@@ -169,7 +173,7 @@ export class EidolonOrchestrator extends EventEmitter {
     try {
       this.treasury.startAutoRefillLoop();
     } catch (err) {
-      this.emit('error', `[Treasury] ${this.getError(err)}`);
+      this.emit("error", `[Treasury] ${this.getError(err)}`);
     }
 
     try {
@@ -205,16 +209,16 @@ export class EidolonOrchestrator extends EventEmitter {
   }
 
   private async safeLoop(): Promise<void> {
-    if (!this.running || this.loopState === 'running') return;
+    if (!this.running || this.loopState === "running") return;
 
-    this.loopState = 'running';
+    this.loopState = "running";
 
     try {
       await this.runLoop();
-      this.loopState = 'idle';
+      this.loopState = "idle";
     } catch (err) {
-      this.loopState = 'error';
-      this.emit('error', `[Loop] ${this.getError(err)}`);
+      this.loopState = "error";
+      this.emit("error", `[Loop] ${this.getError(err)}`);
     }
   }
 
@@ -222,7 +226,7 @@ export class EidolonOrchestrator extends EventEmitter {
     // 1. Treasury health
     const health = await this.treasury.healthCheck();
     if (!health.healthy) {
-      this.emit('alert', `Treasury issue: ${health.actions?.join(', ')}`);
+      this.emit("alert", `Treasury issue: ${health.actions?.join(", ")}`);
     }
 
     // 2. Reputation sync (safe)
@@ -238,12 +242,12 @@ export class EidolonOrchestrator extends EventEmitter {
       const result = await this.trading.analyzeAndTrade(true);
       if (result?.result?.success) {
         this.emit(
-          'log',
-          `Trade: ${result.signal.tokenIn} → ${result.signal.tokenOut}`
+          "log",
+          `Trade: ${result.signal.tokenIn} → ${result.signal.tokenOut}`,
         );
       }
     } catch (err) {
-      this.emit('error', `[Trading] ${this.getError(err)}`);
+      this.emit("error", `[Trading] ${this.getError(err)}`);
     }
 
     // 4. Research (budget-aware)
@@ -251,9 +255,9 @@ export class EidolonOrchestrator extends EventEmitter {
     if (credits > 10) {
       try {
         const report = await this.research.generateDailyReport();
-        this.emit('log', `Report generated: ${report.title}`);
+        this.emit("log", `Report generated: ${report.title}`);
       } catch (err) {
-        this.emit('error', `[Research] ${this.getError(err)}`);
+        this.emit("error", `[Research] ${this.getError(err)}`);
       }
     }
   }
@@ -264,15 +268,15 @@ export class EidolonOrchestrator extends EventEmitter {
     const id = this.config.erc8004.agentId;
 
     if (!id) {
-      throw new Error('AGENT_ID is required in production');
+      throw new Error("AGENT_ID is required in production");
     }
 
     if (!/^0x[0-9a-fA-F]{40,}$/.test(id)) {
-      throw new Error('Invalid AGENT_ID format');
+      throw new Error("Invalid AGENT_ID format");
     }
 
     this.reputation.setAgentId(BigInt(id));
-    this.emit('log', `[Eidolon] Using agent ${id}`);
+    this.emit("log", `[Eidolon] Using agent ${id}`);
   }
 
   /* ========================= UTILS ========================= */
@@ -291,4 +295,4 @@ export class EidolonOrchestrator extends EventEmitter {
   getUptime(): number {
     return Date.now() - this.startTime;
   }
-      }
+}

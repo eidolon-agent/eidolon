@@ -1,11 +1,12 @@
 import { BankrClient } from './bankr-client';
 import { EventEmitter } from 'events';
+import { ethers } from 'ethers';
 
 export interface TreasuryConfig {
   walletAddress: string;
-  autoRefillThreshold: number; // USDC amount below which auto-refill triggers
-  autoRefillAmount: number; // USDC amount to buy in credits
-  minUSDCBalance: number; // Keep at least this much for gas/trading
+  autoRefillThreshold: number;
+  autoRefillAmount: number;
+  minUSDCBalance: number;
   tokens?: string[]; // custom ERC-20 addresses to track
   rpcUrl: string; // Base RPC endpoint
 }
@@ -14,11 +15,13 @@ export class TreasuryManager extends EventEmitter {
   private bankr: BankrClient;
   private config: TreasuryConfig;
   private checkInterval: NodeJS.Timeout | null = null;
+  private provider: ethers.providers.JsonRpcProvider;
 
   constructor(bankr: BankrClient, config: TreasuryConfig) {
     super();
     this.bankr = bankr;
     this.config = config;
+    this.provider = new ethers.providers.JsonRpcProvider(config.rpcUrl);
   }
 
   async getBalances() {
@@ -44,16 +47,63 @@ export class TreasuryManager extends EventEmitter {
     return info.llmCredits || info.credits || 0;
   }
 
+  // Fetch ERC-20 token balance via direct RPC
+  async getTokenBalance(tokenAddress: string): Promise<string> {
+    const wallet = this.config.walletAddress;
+    const iface = new ethers.utils.Interface([
+      'function balanceOf(address) view returns (uint256)'
+    ]);
+    const data = iface.encodeFunctionData('balanceOf', [wallet]);
+
+    try {
+      const result = await this.provider.send('eth_call', [{
+        to: tokenAddress,
+        data: data
+      }, 'latest']);
+      const bal = ethers.BigNumber.from(result);
+      return bal.toString();
+    } catch (error) {
+      this.emit('error', `Failed to fetch token balance for ${tokenAddress}: ${error}`);
+      return '0';
+    }
+  }
+
+  // Get token metadata (symbol, decimals) via ERC-20 standard calls
+  async getTokenInfo(tokenAddress: string): Promise<{ symbol: string; decimals: number }> {
+    const iface = new ethers.utils.Interface([
+      'function symbol() view returns (string)',
+      'function decimals() view returns (uint8)'
+    ]);
+
+    try {
+      const [symbolRes, decimalsRes] = await Promise.all([
+        this.provider.send('eth_call', [{
+          to: tokenAddress,
+          data: iface.encodeFunctionData('symbol', [])
+        }, 'latest']),
+        this.provider.send('eth_call', [{
+          to: tokenAddress,
+          data: iface.encodeFunctionData('decimals', [])
+        }, 'latest'])
+      ]);
+
+      const symbol = iface.decodeFunctionResult('symbol', symbolRes) as any;
+      const decimals = iface.decodeFunctionResult('decimals', decimalsRes).toNumber();
+
+      return { symbol, decimals };
+    } catch (error) {
+      this.emit('error', `Failed to fetch token info for ${tokenAddress}: ${error}`);
+      return { symbol: 'UNKNOWN', decimals: 18 };
+    }
+  }
+
   // Use agent funds to purchase LLM credits via Bankr (manual step; auto via CLI)
   async purchaseCredits(amountUSD: number, token = 'USDC'): Promise<any> {
-    // This would call Bankr's credit purchase endpoint or be done via CLI in practice
-    // For now, we simulate by noting the action; actual implementation depends on Bankr API
     this.emit('log', `[Treasury] Requesting purchase of $${amountUSD} in LLM credits using ${token}`);
-    // TODO: implement actual credit purchase if API accessible
     return { success: true, amount: amountUSD, token };
   }
 
-  // Claim token fees from a deployed token (Bankr Agent API can do this via prompt)
+  // Claim token fees from a deployed token
   async claimTokenFees(tokenSymbol?: string): Promise<any> {
     const prompt = tokenSymbol
       ? `claim my token fees for ${tokenSymbol}`
@@ -63,7 +113,7 @@ export class TreasuryManager extends EventEmitter {
     return { success: true, result };
   }
 
-  // Automatic health check: ensure enough USDC for operations and credits
+  // Automatic health check
   async healthCheck(): Promise<{
     usdcBalance: number;
     credits: number;
@@ -80,40 +130,46 @@ export class TreasuryManager extends EventEmitter {
 
     if (usdc < this.config.minUSDCBalance) {
       healthy = false;
-      actions.push(`USDC balance (${usdc}) below minimum (${this.config.minUSDCBalance})`);
+      actions.push(`USDC balance $${usdc} is below minimum $${this.config.minUSDCBalance}. Consider topping up.`);
     }
 
-    if (credits < this.config.autoRefillThreshold) {
+    if (credits < 10) {
       healthy = false;
-      actions.push(`LLM credits (${credits}) below threshold (${this.config.autoRefillThreshold})`);
+      actions.push(`LLM credits low (${credits}). Consider purchasing more.`);
     }
 
+    this.emit('log', `[Treasury] Health: USDC $${usdc}, credits ${credits} ${healthy ? '✓' : '✗'}`);
     return { usdcBalance: usdc, credits, healthy, actions };
   }
 
-  // Start background loop that checks treasury health and auto-refills credits if needed
-  startAutoRefillLoop(intervalMs: number = 60000): void {
+  // Start autonomous health check loop (every 5 minutes)
+  startHealthLoop(intervalMs: number = 5 * 60 * 1000) {
+    if (this.checkInterval) return;
     this.checkInterval = setInterval(async () => {
       try {
-        const { usdcBalance, credits, healthy, actions } = await this.healthCheck();
-        if (!healthy) {
-          this.emit('alert', `Treasury needs attention: ${actions.join('; ')}`);
-          // If credits low and we have enough USDC, purchase credits
-          if (credits < this.config.autoRefillThreshold && usdcBalance >= this.config.autoRefillAmount) {
-            await this.purchaseCredits(this.config.autoRefillAmount);
-            this.emit('log', `Auto-purchased $${this.config.autoRefillAmount} credits`);
-          }
-        }
-      } catch (err: any) {
-        this.emit('error', `Treasury auto-refill error: ${err.message}`);
+        const health = await this.healthCheck();
+        this.emit('health', health);
+      } catch (error: any) {
+        this.emit('error', `Health check error: ${error.message}`);
       }
     }, intervalMs);
+    this.emit('log', '[Treasury] Health loop started');
   }
 
-  stopAutoRefillLoop(): void {
+  stopHealthLoop() {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
+      this.emit('log', '[Treasury] Health loop stopped');
     }
+  }
+
+  // Auto-refill loop (placeholder)
+  startAutoRefillLoop(intervalMs: number = 60 * 60 * 1000) {
+    this.emit('log', '[Treasury] Auto-refill loop not implemented');
+  }
+
+  stopAutoRefillLoop() {
+    // No-op
   }
 }

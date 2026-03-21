@@ -366,11 +366,63 @@ export class X402Server extends EventEmitter {
     try {
       const balances = await this.bankr.getBalances();
       this.onChainBalances = balances;
+      // Include custom token balances if configured
+      if (this.tokens && this.tokens.length > 0 && this.provider) {
+        const wallet = this.config.paymentAddress;
+        for (const tokenAddr of this.tokens) {
+          try {
+            const info = await this.fetchTokenInfo(tokenAddr);
+            const balanceWei = await this.fetchTokenBalanceRaw(tokenAddr, wallet);
+            const balanceHuman = ethers.utils.formatUnits(balanceWei, info.decimals);
+            if (!balances.balances) balances.balances = [];
+            balances.balances.push({ currency: info.symbol, balance: balanceHuman, address: tokenAddr, decimals: info.decimals });
+          } catch (err) {
+            console.error(`[X402] Failed to fetch custom token ${tokenAddr}:`, err);
+          }
+        }
+      }
       return balances;
     } catch (err: any) {
       console.warn('[X402] Failed to fetch on-chain balances:', err.message);
       return null;
     }
+  }
+
+  // Fetch token symbol and decimals via RPC
+  private async fetchTokenInfo(tokenAddress: string): Promise<{ symbol: string; decimals: number }> {
+    if (!this.provider) throw new Error("No RPC provider configured");
+    const iface = new ethers.utils.Interface([
+      "function symbol() view returns (string)",
+      "function decimals() view returns (uint8)"
+    ]);
+    const [symbolRes, decimalsRes] = await Promise.all([
+      this.provider!.send("eth_call", [{
+        to: tokenAddress,
+        data: iface.encodeFunctionData("symbol", [])
+      }, "latest"]),
+      this.provider!.send("eth_call", [{
+        to: tokenAddress,
+        data: iface.encodeFunctionData("decimals", [])
+      }, "latest"])
+    ]);
+    const symbol = iface.decodeFunctionResult("symbol", symbolRes) as any;
+    const decimals = iface.decodeFunctionResult("decimals", decimalsRes).toNumber();
+    return { symbol, decimals };
+  }
+
+  // Fetch raw token balance (wei/atomic) via RPC
+  private async fetchTokenBalanceRaw(tokenAddress: string, walletAddress: string): Promise<string> {
+    if (!this.provider) throw new Error("No RPC provider configured");
+    const iface = new ethers.utils.Interface([
+      "function balanceOf(address) view returns (uint256)"
+    ]);
+    const data = iface.encodeFunctionData("balanceOf", [walletAddress]);
+    const result = await this.provider!.send("eth_call", [{
+      to: tokenAddress,
+      data: data
+    }, "latest"]);
+    const bal = ethers.BigNumber.from(result);
+    return bal.toString();
   }
 
   private startBalancePolling() {

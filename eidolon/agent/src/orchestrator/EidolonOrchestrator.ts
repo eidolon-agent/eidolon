@@ -70,7 +70,6 @@ export class EidolonOrchestrator extends EventEmitter {
       llmApiKey: config.bankr.llmApiKey,
       agentApiKey: config.bankr.agentApiKey,
     });
-
     this.treasury = new TreasuryManager(this.bankr, {
       walletAddress: config.treasury.walletAddress,
       autoRefillThreshold: config.treasury.autoRefillThreshold,
@@ -79,7 +78,6 @@ export class EidolonOrchestrator extends EventEmitter {
       tokens: config.treasury.tokens,
       rpcUrl: config.network.rpcUrl,
     });
-
     this.reputation = new ReputationManager(
       {
         identityRegistry: config.erc8004.identityRegistry,
@@ -89,10 +87,6 @@ export class EidolonOrchestrator extends EventEmitter {
       },
       config.network.rpcUrl
     );
-
-    // Ethereum knowledge service (must be initialized before copilots)
-    this.ethKnowledge = new EthereumKnowledgeService();
-
     // Copilots
     this.trading = new TradingCopilot(this.bankr, config.agent.llmModel, this.ethKnowledge);
     this.token = new TokenCopilot(this.bankr);

@@ -1,8 +1,8 @@
 import { EventEmitter } from 'events';
-import { ethers } from 'ethers';
 
-// TODO: Update import if CDP SDK structure differs
-// The x402 methods are likely under CDPClient.x402
+// Optional: remove if not used
+// import { ethers } from 'ethers';
+
 interface CDPClient {
   x402: {
     verifyPayment: (params: { clientId: string; resource: string; amount: number }) => Promise<boolean>;
@@ -41,108 +41,117 @@ export class CoinbaseCDPFacilitator extends EventEmitter {
     onCharge?: (clientId: string, amount: number, resource: string) => Promise<void>;
   }) {
     super();
+
     this.paymentAddress = config.paymentAddress;
     this.onCharge = config.onCharge;
-    
-    // Initialize CDP client (pseudo-code — adjust to actual SDK)
-    // @ts-ignore — replace with real CDPClient import and construction
-    this.cdp = new (require('@coinbase/cdp-sdk').CDPClient)({ 
-      apiKey: config.apiKey,
-      // other options: network, etc.
-    }) as CDPClient;
+
+    try {
+      // ⚠️ dynamic require (safe fallback)
+      const { CDPClient } = require('@coinbase/cdp-sdk');
+
+      this.cdp = new CDPClient({
+        apiKey: config.apiKey,
+      }) as CDPClient;
+
+    } catch (err: any) {
+      throw new Error(`Failed to initialize CDP SDK: ${err?.message || err}`);
+    }
   }
 
   /**
-   * Creates Express middleware that enforces x402 payment.
-   * Use this in route definitions.
+   * Express middleware for x402 payment enforcement
    */
   createMiddleware(resource: { path: string; method: string }, priceUSD: number) {
     return async (req: any, res: any, next: Function) => {
-      const clientId = req.header('X-Client-ID') || 'anonymous';
-      
-      // Verify payment via Coinbase CDP
+      const clientId = req.header?.('X-Client-ID') || 'anonymous';
+
       let paid = false;
+
       try {
         paid = await this.cdp.x402.verifyPayment({
           clientId,
           resource: resource.path,
           amount: priceUSD,
         });
-      } catch (err) {
-        this.emit('error', `CDP payment verification error: ${err.message}`);
+      } catch (err: any) {
+        this.emit('error', `[CDP verifyPayment] ${err?.message || err}`);
       }
 
       if (!paid) {
-        // Return 402 Payment Required with x402 headers
         res.set('X-402-Payment-Required', `${priceUSD} USDC`);
         res.set('X-402-Payment-Address', this.paymentAddress);
         res.set('X-402-Payment-Description', `Access to ${resource.path}`);
         res.set('X-Payment-Provider', 'coinbase-cdp');
-        return res.status(402).json({ 
+
+        return res.status(402).json({
           error: 'Payment required',
           priceUSD,
           paymentAddress: this.paymentAddress,
-          resource: resource.path
+          resource: resource.path,
         });
       }
 
-      // Payment verified — proceed to handler
+      // Optional: trigger charge callback
+      if (this.onCharge) {
+        try {
+          await this.onCharge(clientId, priceUSD, resource.path);
+        } catch (err: any) {
+          this.emit('error', `[CDP onCharge] ${err?.message || err}`);
+        }
+      }
+
       next();
     };
   }
 
   /**
-   * Generate a payment request for a client.
-   * Returns details needed to construct the on-chain payment transaction.
+   * Create payment request
    */
-  async requestPayment(clientId: string, resource: string, amount: number): Promise<{
+  async requestPayment(
+    clientId: string,
+    resource: string,
+    amount: number
+  ): Promise<{
     paymentAddress: string;
     amount: string;
     deadline: string;
     memo?: string;
   }> {
     try {
-      const req = await this.cdp.x402.createPaymentRequest({
+      return await this.cdp.x402.createPaymentRequest({
         clientId,
         resource,
         amount,
         currency: 'USDC',
-        expiresIn: 900, // 15 minutes
+        expiresIn: 900,
       });
-      return req;
-    } catch (err) {
-      this.emit('error', `CDP createPaymentRequest error: ${err.message}`);
+    } catch (err: any) {
+      this.emit('error', `[CDP requestPayment] ${err?.message || err}`);
       throw err;
     }
   }
 
   /**
-   * Check payment status for a client/resource.
+   * Get payment status
    */
-  async getPaymentStatus(clientId: string, resource: string): Promise<{
-    paid: boolean;
-    amountPaid: number;
-    txHash?: string;
-    paidAt?: string;
-  }> {
+  async getPaymentStatus(clientId: string, resource: string) {
     try {
       return await this.cdp.x402.getPaymentStatus({ clientId, resource });
-    } catch (err) {
-      this.emit('error', `CDP getPaymentStatus error: ${err.message}`);
+    } catch (err: any) {
+      this.emit('error', `[CDP getPaymentStatus] ${err?.message || err}`);
       return { paid: false, amountPaid: 0 };
     }
   }
 
   /**
-   * Register a webhook endpoint for payment events.
-   * Useful for asynchronous notification of payments.
+   * Register webhook
    */
   async registerWebhook(url: string, events: string[] = ['payment.verified']) {
     try {
       await this.cdp.webhooks.create({ url, events });
-      this.emit('log', `[CDP] Registered webhook ${url} for events: ${events.join(', ')}`);
-    } catch (err) {
-      this.emit('error', `CDP webhook registration error: ${err.message}`);
+      this.emit('log', `[CDP] Webhook registered: ${url}`);
+    } catch (err: any) {
+      this.emit('error', `[CDP webhook] ${err?.message || err}`);
     }
   }
-}
+    }

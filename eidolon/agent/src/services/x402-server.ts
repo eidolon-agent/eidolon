@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import * as path from 'path';
+import * as fs from 'fs';
 import { EventEmitter } from 'events';
 import axios from 'axios';
 import { ethers } from 'ethers';
@@ -25,7 +26,6 @@ export class X402Server extends EventEmitter {
   private ledger = new Map<string, { balance: number; debt: number }>();
   private trustScore = 500;
   private balanceInterval?: NodeJS.Timeout;
-
   private provider?: ethers.providers.JsonRpcProvider;
 
   constructor(
@@ -42,9 +42,18 @@ export class X402Server extends EventEmitter {
     }
 
     this.app.use(express.json());
-    this.app.use(express.static(path.join(process.cwd(), 'public')));
 
-    this.setupRoutes();
+    // ✅ FIX: stable static path
+    const publicPath = path.resolve('public');
+    this.app.use(express.static(publicPath));
+
+    this.setupRoutes(publicPath);
+
+    // ✅ demo seed
+    if (config.demoMode) {
+      this.ledger.set('demo', { balance: 10, debt: 0 });
+      console.log('[X402] Demo client seeded');
+    }
   }
 
   /* ========================= START / STOP ========================= */
@@ -60,9 +69,7 @@ export class X402Server extends EventEmitter {
 
   stop() {
     if (this.server) {
-      this.server.close(() => {
-        console.log('[X402] stopped');
-      });
+      this.server.close(() => console.log('[X402] stopped'));
     }
 
     if (this.balanceInterval) {
@@ -72,7 +79,8 @@ export class X402Server extends EventEmitter {
 
   /* ========================= ROUTES ========================= */
 
-  private setupRoutes() {
+  private setupRoutes(publicPath: string) {
+    // health
     this.app.get('/health', (req, res) => {
       res.json({
         status: 'ok',
@@ -81,19 +89,29 @@ export class X402Server extends EventEmitter {
       });
     });
 
+    // stats
     this.app.get('/stats', (req, res) => {
       const clients = Array.from(this.ledger.entries());
 
-      const stats = clients.map(([id, v]) => ({
-        id,
-        balance: v.balance,
-        debt: v.debt,
-      }));
-
       res.json({
-        clients: stats,
+        clients: clients.map(([id, v]) => ({
+          id,
+          balance: v.balance,
+          debt: v.debt,
+        })),
         trustScore: this.trustScore,
       });
+    });
+
+    // ✅ FIX: dashboard route (NO MORE ERROR)
+    this.app.get('/dashboard', (req, res) => {
+      const file = path.join(publicPath, 'dashboard.html');
+
+      if (!fs.existsSync(file)) {
+        return res.status(404).send('dashboard.html not found');
+      }
+
+      res.sendFile(file);
     });
   }
 
@@ -109,11 +127,7 @@ export class X402Server extends EventEmitter {
     if (!price) throw new Error(`Missing pricing for ${routePath}`);
 
     const middleware = async (req: Request, res: Response, next: Function) => {
-      const clientId = req.header('X-Client-ID');
-
-      if (!clientId) {
-        return res.status(400).json({ error: 'Missing X-Client-ID' });
-      }
+      const clientId = req.header('X-Client-ID') || uuidv4();
 
       // Coinbase flow
       if (this.config.facilitatorUrl) {
@@ -195,8 +209,7 @@ export class X402Server extends EventEmitter {
 
   private async fetchBalances() {
     try {
-      const balances = await this.bankr.getBalances();
-      return balances;
+      return await this.bankr.getBalances();
     } catch (err: any) {
       console.error('[X402] balance error:', err?.message || err);
       return null;
@@ -214,4 +227,4 @@ export class X402Server extends EventEmitter {
   setTrustScore(score: number) {
     this.trustScore = score;
   }
-  }
+    }

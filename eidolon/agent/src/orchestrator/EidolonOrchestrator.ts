@@ -6,6 +6,8 @@ import { TradingCopilot } from '../services/trading-copilot';
 import { TokenCopilot } from '../services/token-copilot';
 import { ResearchCopilot } from '../services/research-copilot';
 import { X402Server } from '../services/x402-server';
+import { EthereumKnowledgeService } from '../services/ethereum-knowledge';
+import { ethers } from 'ethers';
 
 export interface EidolonConfig {
   bankr: {
@@ -48,6 +50,9 @@ export interface EidolonConfig {
 }
 
 export class EidolonOrchestrator extends EventEmitter {
+  private running = false;
+  private loopInterval: NodeJS.Timeout | null = null;
+
   private bankr: BankrClient;
   private treasury: TreasuryManager;
   private reputation: ReputationManager;
@@ -55,22 +60,14 @@ export class EidolonOrchestrator extends EventEmitter {
   private token: TokenCopilot;
   private research: ResearchCopilot;
   private x402: X402Server;
-
-  private running = false;
-  private loop?: NodeJS.Timeout;
+  private ethKnowledge: EthereumKnowledgeService;
 
   constructor(private config: EidolonConfig) {
     super();
 
-    // ✅ VALIDATION
-    if (!config.erc8004.agentId) {
-      throw new Error('AGENT_ID wajib di production');
-    }
+    this.bankr = new BankrClient(config.bankr);
 
-    this.bankr = new BankrClient({
-      llmApiKey: config.bankr.llmApiKey,
-      agentApiKey: config.bankr.agentApiKey,
-    });
+    this.ethKnowledge = new EthereumKnowledgeService(config.network.rpcUrl);
 
     this.treasury = new TreasuryManager(this.bankr, {
       walletAddress: config.treasury.walletAddress,
@@ -91,7 +88,12 @@ export class EidolonOrchestrator extends EventEmitter {
       config.network.rpcUrl
     );
 
-    this.trading = new TradingCopilot(this.bankr, config.agent.llmModel);
+    this.trading = new TradingCopilot(
+      this.bankr,
+      config.agent.llmModel,
+      this.ethKnowledge
+    );
+
     this.token = new TokenCopilot(this.bankr);
     this.research = new ResearchCopilot(this.bankr);
 
@@ -112,24 +114,78 @@ export class EidolonOrchestrator extends EventEmitter {
       }
     );
 
-    this.forwardEvents();
+    this.setupEvents();
+  }
+
+  /* ========================= INIT ========================= */
+
+  private setupEvents() {
+    const forward = (emitter: any, event: string) => {
+      emitter.on(event, (...args: any[]) => this.emit(event, ...args));
+    };
+
+    [this.treasury, this.trading, this.token, this.research, this.x402, this.reputation].forEach(e => {
+      ['log', 'error', 'alert', 'trade', 'payment', 'credit', 'launched'].forEach(evt => {
+        forward(e, evt);
+      });
+    });
+  }
+
+  /* ========================= SAFE HELPERS ========================= */
+
+  private async safeGetReputation(): Promise<number> {
+    try {
+      return await this.reputation.getReputationScore();
+    } catch (err: any) {
+      this.emit('log', '[Eidolon] Reputation fallback → 0');
+      return 0;
+    }
+  }
+
+  private async agentExists(): Promise<boolean> {
+    try {
+      const id = this.config.erc8004.agentId;
+      if (!id) return false;
+      await this.reputation.getAgent(BigInt(id));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /* ========================= IDENTITY ========================= */
 
   async initializeIdentity() {
-    const raw = this.config.erc8004.agentId!;
+    const agentId = this.config.erc8004.agentId;
+
+    if (agentId) {
+      this.reputation.setAgentId(BigInt(agentId));
+
+      const exists = await this.agentExists();
+
+      if (!exists) {
+        this.emit('alert', `[Eidolon] Agent ${agentId} not found on this network`);
+      } else {
+        this.emit('log', `[Eidolon] Using agent ${agentId}`);
+      }
+      return;
+    }
+
+    if (!this.reputation.isEnabled()) {
+      this.emit('log', '[Eidolon] Reputation disabled');
+      return;
+    }
 
     try {
-      const id = BigInt(raw);
+      const id = await this.reputation.registerAgent(
+        this.config.agent.name,
+        this.config.agent.description,
+        this.config.agent.capabilities
+      );
 
-      this.reputation.setAgentId(id);
-
-      this.emit('log', `[Eidolon] Using existing agent ID ${id}`);
-
+      this.emit('log', `[Eidolon] Registered new agent ${id}`);
     } catch (err: any) {
-      this.emit('error', `Invalid AGENT_ID: ${err.message}`);
-      throw err;
+      this.emit('error', err.message);
     }
   }
 
@@ -138,22 +194,24 @@ export class EidolonOrchestrator extends EventEmitter {
   async start() {
     this.emit('log', '[Eidolon] Starting...');
 
+    await this.validateNetwork();
     await this.initializeIdentity();
 
     this.x402.start();
     this.treasury.startAutoRefillLoop();
 
-    const score = await this.reputation.getReputationScore();
+    const score = await this.safeGetReputation();
     this.x402.setTrustScore(score);
 
     this.running = true;
 
-    // ✅ improved loop (no overlap)
-    this.loop = setInterval(() => {
-      this.safeLoop();
-    }, 60_000); // 1 min
+    this.loopInterval = setInterval(() => {
+      this.runLoop().catch(err => {
+        this.emit('error', err.message);
+      });
+    }, 5 * 60 * 1000);
 
-    await this.safeLoop();
+    await this.runLoop();
 
     this.emit('log', '[Eidolon] Running');
   }
@@ -161,7 +219,7 @@ export class EidolonOrchestrator extends EventEmitter {
   stop() {
     this.running = false;
 
-    if (this.loop) clearInterval(this.loop);
+    if (this.loopInterval) clearInterval(this.loopInterval);
 
     this.treasury.stopAutoRefillLoop();
     this.x402.stop();
@@ -171,80 +229,67 @@ export class EidolonOrchestrator extends EventEmitter {
 
   /* ========================= LOOP ========================= */
 
-  private isRunningLoop = false;
-
-  private async safeLoop() {
-    if (this.isRunningLoop) return; // prevent overlap
-    this.isRunningLoop = true;
-
-    try {
-      await this.runLoop();
-    } catch (err: any) {
-      this.emit('error', err.message);
-    } finally {
-      this.isRunningLoop = false;
-    }
-  }
-
   private async runLoop() {
     if (!this.running) return;
 
-    this.emit('log', '[Loop] start');
+    this.emit('log', '[Eidolon] Loop start');
 
-    // 1. treasury health
+    try {
+      await Promise.allSettled([
+        this.runHealthCheck(),
+        this.syncReputation(),
+        this.runTrading(),
+        this.runResearch(),
+        this.claimFees(),
+      ]);
+    } catch (err: any) {
+      this.emit('error', err.message);
+    }
+
+    this.emit('log', '[Eidolon] Loop end');
+  }
+
+  private async runHealthCheck() {
     const health = await this.treasury.healthCheck();
     if (!health.healthy) {
       this.emit('alert', `Treasury issue: ${health.actions?.join(', ')}`);
     }
+  }
 
-    // 2. reputation sync
-    const score = await this.reputation.getReputationScore();
+  private async syncReputation() {
+    const score = await this.safeGetReputation();
     this.x402.setTrustScore(score);
+  }
 
-    // 3. trading (safe)
-    try {
-      const trade = await this.trading.analyzeAndTrade(true);
-      if (trade?.result?.success) {
-        this.emit('trade', trade);
-      }
-    } catch (err) {
-      this.emit('log', 'Trade skipped');
+  private async runTrading() {
+    const res = await this.trading.analyzeAndTrade(true);
+    if (res?.result?.success) {
+      this.emit('trade', res);
     }
+  }
 
-    // 4. research (only if enough credits)
+  private async runResearch() {
+    const credits = await this.treasury.getLLMCredits();
+    if (credits > 10) {
+      const report = await this.research.generateDailyReport();
+      this.emit('log', `[Report] ${report.title}`);
+    }
+  }
+
+  private async claimFees() {
     try {
-      const credits = await this.treasury.getLLMCredits();
-      if (credits > 10) {
-        const report = await this.research.generateDailyReport();
-        this.emit('log', `Report: ${report.title}`);
-      }
+      await this.token.claimFees('EIDO');
     } catch {}
-
-    // 5. token fees (non-blocking)
-    this.token.claimFees('EIDO').catch(() => {});
-
-    this.emit('log', '[Loop] end');
   }
 
-  /* ========================= EVENTS ========================= */
+  /* ========================= NETWORK ========================= */
 
-  private forwardEvents() {
-    const f = (em: any, ev: string) =>
-      em.on(ev, (...a: any[]) => this.emit(ev, ...a));
+  private async validateNetwork() {
+    const provider = new ethers.providers.JsonRpcProvider(this.config.network.rpcUrl);
+    const net = await provider.getNetwork();
 
-    f(this.treasury, 'log');
-    f(this.treasury, 'alert');
-    f(this.trading, 'trade');
-    f(this.trading, 'error');
-    f(this.token, 'launched');
-    f(this.research, 'log');
-    f(this.x402, 'credit');
-    f(this.x402, 'payment');
+    if (net.chainId !== this.config.network.chainId) {
+      this.emit('alert', `Chain mismatch: expected ${this.config.network.chainId}, got ${net.chainId}`);
+    }
   }
-
-  /* ========================= GETTERS ========================= */
-
-  getX402() {
-    return this.x402;
-  }
-      }
+                     }

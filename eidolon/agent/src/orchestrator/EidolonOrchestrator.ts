@@ -7,7 +7,6 @@ import { TokenCopilot } from '../services/token-copilot';
 import { ResearchCopilot } from '../services/research-copilot';
 import { X402Server } from '../services/x402-server';
 import { EthereumKnowledgeService } from '../services/ethereum-knowledge';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface EidolonConfig {
   bankr: {
@@ -19,7 +18,7 @@ export interface EidolonConfig {
     autoRefillThreshold: number;
     autoRefillAmount: number;
     minUSDCBalance: number;
-    tokens?: string[]; // additional ERC-20 token addresses
+    tokens?: string[];
   };
   erc8004: {
     identityRegistry: string;
@@ -33,10 +32,9 @@ export interface EidolonConfig {
     paymentAddress: string;
     pricing: Record<string, { priceUSD: number; description: string }>;
     maxDebt: number;
-    dataDir?: string; // optional directory for x402 persistence
+    dataDir?: string;
     coinbaseApiKey?: string;
-    coinbaseApiKey?: string;
-    demoMode?: boolean; // if true, auto-seeds demo client on startup
+    demoMode?: boolean;
   };
   network: {
     rpcUrl: string;
@@ -47,6 +45,7 @@ export interface EidolonConfig {
     description: string;
     capabilities: string[];
     llmModel?: string;
+    tokenSymbol?: string;
   };
 }
 
@@ -59,27 +58,30 @@ export class EidolonOrchestrator extends EventEmitter {
   private token: TokenCopilot;
   private research: ResearchCopilot;
   private x402: X402Server;
-  private ethKnowledge!: EthereumKnowledgeService; // definite assignment assertion
-  private running: boolean = false;
-  private loopInterval: NodeJS.Timeout | null = null;
+  private ethKnowledge!: EthereumKnowledgeService;
+
+  private running = false;
+  private isLoopRunning = false;
 
   constructor(config: EidolonConfig) {
     super();
     this.config = config;
 
-    // Initialize core clients
+    // Core clients
     this.bankr = new BankrClient({
       llmApiKey: config.bankr.llmApiKey,
       agentApiKey: config.bankr.agentApiKey,
     });
+
     this.treasury = new TreasuryManager(this.bankr, {
       walletAddress: config.treasury.walletAddress,
       autoRefillThreshold: config.treasury.autoRefillThreshold,
       autoRefillAmount: config.treasury.autoRefillAmount,
       minUSDCBalance: config.treasury.minUSDCBalance,
-      tokens: config.treasury.tokens,
+      tokens: config.treasury.tokens || [],
       rpcUrl: config.network.rpcUrl,
     });
+
     this.reputation = new ReputationManager(
       {
         identityRegistry: config.erc8004.identityRegistry,
@@ -89,9 +91,19 @@ export class EidolonOrchestrator extends EventEmitter {
       },
       config.network.rpcUrl
     );
-    // Copilots
-    this.trading = new TradingCopilot(this.bankr, config.agent.llmModel, this.ethKnowledge);
+
+    // Services
+    this.ethKnowledge = new EthereumKnowledgeService();
+
+    this.trading = new TradingCopilot(
+      this.bankr,
+      config.agent.llmModel,
+      this.ethKnowledge
+    );
+
     this.token = new TokenCopilot(this.bankr);
+    this.research = new ResearchCopilot(this.bankr);
+
     this.x402 = new X402Server(
       {
         port: config.x402.port,
@@ -100,239 +112,165 @@ export class EidolonOrchestrator extends EventEmitter {
         maxDebt: config.x402.maxDebt,
         dataDir: config.x402.dataDir,
         demoMode: config.x402.demoMode,
-        coinbaseApiKey: process.env.COINBASE_CDP_API_KEY || config.x402.coinbaseApiKey || '',
+        coinbaseApiKey:
+          process.env.COINBASE_CDP_API_KEY ||
+          config.x402.coinbaseApiKey ||
+          '',
       },
       this.bankr,
       {
         rpcUrl: config.network.rpcUrl,
-        tokens: config.treasury.tokens,
+        tokens: config.treasury.tokens || [],
       }
-    );
-        dataDir: config.x402.dataDir,
-        demoMode: config.x402.demoMode,
-        coinbaseApiKey: process.env.COINBASE_CDP_API_KEY || config.x402.coinbaseApiKey,
-      },
-      this.bankr,
-      {
-        rpcUrl: config.network.rpcUrl,
-        tokens: config.treasury.tokens,
-      }
-    );
-        dataDir: config.x402.dataDir,
-        demoMode: config.x402.demoMode,
-      },
-      this.bankr
     );
 
-    // Wire events
     this.setupEventForwarding();
   }
 
   private setupEventForwarding() {
-    const forward = ( emitter: any, event: string ) => {
+    const forward = (emitter: any, event: string) => {
       emitter.on(event, (...args: any[]) => {
         this.emit(event, ...args);
       });
     };
+
     forward(this.treasury, 'log');
     forward(this.treasury, 'alert');
     forward(this.treasury, 'error');
+
     forward(this.trading, 'log');
     forward(this.trading, 'trade');
     forward(this.trading, 'error');
+
     forward(this.token, 'log');
     forward(this.token, 'launched');
     forward(this.token, 'error');
+
     forward(this.research, 'log');
     forward(this.research, 'error');
+
     forward(this.x402, 'payment');
     forward(this.x402, 'credit');
     forward(this.x402, 'error');
+
     forward(this.reputation, 'registered');
   }
 
   async initializeIdentity(): Promise<void> {
     const agentId = this.config.erc8004.agentId;
-    // Only use provided agentId if it looks like a valid hex address (0x followed by 40+ hex chars)
-    const isValidAgentId = agentId && /^0x[0-9a-fA-F]{40,}$/.test(agentId);
-    if (isValidAgentId) {
+    const isValid = agentId && /^0x[0-9a-fA-F]{40,}$/.test(agentId);
+
+    if (isValid) {
       this.reputation.setAgentId(BigInt(agentId));
       this.emit('log', `[Eidolon] Using existing agent ID ${agentId}`);
       return;
     }
 
     if (!this.reputation.isEnabled()) {
-      this.emit('log', '[Eidolon] ERC-8004 not configured or agent ID not set. Skipping identity registration.');
+      this.emit('log', '[Eidolon] ERC-8004 not configured.');
       return;
     }
 
-    this.emit('log', '[Eidolon] Registering ERC-8004 identity...');
     try {
-      const newAgentId = await this.reputation.registerAgent(
+      const newId = await this.reputation.registerAgent(
         this.config.agent.name,
         this.config.agent.description,
         this.config.agent.capabilities
       );
-      this.emit('log', `[Eidolon] Agent registered with ID ${newAgentId.toString()}`);
+      this.emit('log', `[Eidolon] Registered ID ${newId}`);
     } catch (err: any) {
-      this.emit('error', `Failed to register ERC-8004 identity: ${err.message}`);
-      // Continue running; reputation features will be limited
+      this.emit('error', err.stack || err.message);
     }
   }
 
   async start() {
-    this.emit('log', '[Eidolon] Starting autonomous system...');
+    this.emit('log', '[Eidolon] Starting...');
 
-    // Step 1: Ensure identity exists
     await this.initializeIdentity();
 
-    // Step 2: Start X402 server for incoming payments
     this.x402.start();
-    this.emit('log', `[Eidolon] X402 server started on port ${this.config.x402.port}`);
-
-    // Step 3: Start treasury auto-refill loop
     this.treasury.startAutoRefillLoop();
-    this.emit('log', '[Eidolon] Treasury auto-refill loop started');
 
-    // Step 4: Update trust score in X402 server from reputation
-    const initialScore = await this.reputation.getReputationScore();
-    this.x402.setTrustScore(initialScore);
-    this.emit('log', `[Eidolon] Initial trust score: ${initialScore}`);
+    const score = await this.reputation.getReputationScore();
+    this.x402.setTrustScore(score);
 
-    // Step 5: Launch the agent's own token if not already deployed
-    // TODO: Check if token exists; if not, launch it
-    // For MVP, we assume token is already deployed or user will launch manually
-    this.emit('log', '[Eidolon] Token launch should be done manually or via token copilot');
-
-    // Step 6: Start autonomous loop
     this.running = true;
-    this.loopInterval = setInterval(() => this.runAutonomousLoop(), 5 * 60 * 1000); // every 5 minutes
-    this.emit('log', '[Eidolon] Autonomous loop started (5 min intervals)');
-
-    // Run one immediately
-    this.runAutonomousLoop().catch(console.error);
+    this.startLoop();
   }
 
   stop() {
     this.running = false;
-    if (this.loopInterval) {
-      clearInterval(this.loopInterval);
-      this.loopInterval = null;
-    }
     this.treasury.stopAutoRefillLoop();
+    this.x402.stop?.();
     this.emit('stopped');
   }
 
-  private async runAutonomousLoop() {
-    if (!this.running) return;
+  private async startLoop() {
+    while (this.running) {
+      await this.runAutonomousLoop();
+      await new Promise(res => setTimeout(res, 5 * 60 * 1000));
+    }
+  }
 
-    this.emit('log', '[Eidolon] === Autonomous Loop Start ===');
+  private async runAutonomousLoop() {
+    if (this.isLoopRunning) return;
+    this.isLoopRunning = true;
+
+    this.emit('log', '[Eidolon] Loop start');
 
     try {
-      // 1. Health check: treasury balances
-      const health = await this.treasury.healthCheck();
-      if (!health.healthy) {
-        this.emit('alert', `Treasury health degraded: ${health.actions?.join('; ')}`);
-      }
+      await this.safe('health', async () => {
+        const h = await this.treasury.healthCheck();
+        if (!h.healthy) {
+          this.emit('alert', h.actions?.join('; '));
+        }
+      });
 
-      // 2. Update trust score from reputation and sync to X402
-      const score = await this.reputation.getReputationScore();
-      this.x402.setTrustScore(score);
+      await this.safe('reputation', async () => {
+        const score = await this.reputation.getReputationScore();
+        this.x402.setTrustScore(score);
+      });
 
-      // 3. Generate trading signal (and maybe execute)
-      const tradeResult = await this.trading.analyzeAndTrade(/*execute=*/true);
-      if (tradeResult.result?.success) {
-        // Record a validation (positive) for self? Actually we need to record in reputation
-        // For now, just log
-        this.emit('log', `[Eidolon] Trade executed: ${tradeResult.signal.tokenIn}->${tradeResult.signal.tokenOut}`);
-        // Future: call issueCredential for 'trading_activity' or record validation
-      }
+      await this.safe('trading', async () => {
+        const t = await this.trading.analyzeAndTrade(true);
+        if (t.result?.success) {
+          this.emit('log', `Trade: ${t.signal.tokenIn}->${t.signal.tokenOut}`);
+        }
+      });
 
-      // 4. Optionally generate research report (if enough credits)
-      const credits = await this.treasury.getLLMCredits();
-      if (credits > 10) {
-        const report = await this.research.generateDailyReport();
-        this.emit('log', `[Eidolon] Generated report: ${report.title}`);
-        // Could store or publish report
-      }
+      await this.safe('research', async () => {
+        const credits = await this.treasury.getLLMCredits();
+        if (credits > 10) {
+          const r = await this.research.generateDailyReport();
+          this.emit('log', `Report: ${r.title}`);
+        }
+      });
 
-      // 5. Claim token fees daily (we could do this less frequently)
-      try {
-        await this.token.claimFees('EIDO');
-      } catch (err) {
-        this.emit('log', '[Eidolon] No token fees to claim or token not deployed yet.');
-      }
-
-      // 6. Update DevSpot agent log and manifest (simulated)
-      this.writeDevSpotLogs();
+      await this.safe('fees', async () => {
+        const symbol = this.config.agent.tokenSymbol || 'EIDO';
+        await this.token.claimFees(symbol);
+      });
 
     } catch (err: any) {
-      this.emit('error', `Autonomous loop error: ${err.message}`);
+      this.emit('error', err.stack || err.message);
     }
 
-    this.emit('log', '[Eidolon] === Autonomous Loop End ===');
+    this.emit('log', '[Eidolon] Loop end');
+    this.isLoopRunning = false;
   }
 
-  private writeDevSpotLogs() {
-    const manifest = {
-      manifest_version: '1.0.0',
-      name: this.config.agent.name,
-      version: '0.1.0',
-      description: this.config.agent.description,
-      capabilities: this.config.agent.capabilities,
-      architecture: {
-        type: 'modular_autonomous',
-        components: ['Planner', 'Executor', 'Treasury', 'Reputation', 'Copilots'],
-      },
-      operator_model: {
-        requires_operator_wallet: true,
-        identity_linked_to_operator: true,
-        reputation_builds_over_time: true,
-        onchain_transactions_enabled: true,
-      },
-      erc8004: {
-        identity_registry: this.config.erc8004.identityRegistry,
-        reputation_registry: this.config.erc8004.reputationRegistry,
-        validation_registry: this.config.erc8004.validationRegistry,
-      },
-      x402: {
-        endpoints: Object.keys(this.config.x402.pricing),
-        payment_address: this.config.x402.paymentAddress,
-      },
-      metadata: {
-        author: 'OpenClaw Agent',
-        created_at: new Date().toISOString(),
-        tags: ['erc8004', 'autonomous', 'bankr', 'x402', 'self-sustaining'],
-      },
-    };
-
-    // Write manifest file
-    this.emit('log', `[Eidolon] Updating DevSpot manifest (simulated write)`);
-    // In a real implementation, we'd write to /manifests/agent.json
-    // Here we just log for the session
+  private async safe(name: string, fn: () => Promise<void>) {
+    try {
+      await fn();
+    } catch (err: any) {
+      this.emit('error', `[${name}] ${err.stack || err.message}`);
+    }
   }
 
-  getX402Server(): X402Server {
-    return this.x402;
-  }
-
-  getTreasury(): TreasuryManager {
-    return this.treasury;
-  }
-
-  getTradingCopilot(): TradingCopilot {
-    return this.trading;
-  }
-
-  getTokenCopilot(): TokenCopilot {
-    return this.token;
-  }
-
-  getResearchCopilot(): ResearchCopilot {
-    return this.research;
-  }
-
-  getReputationManager(): ReputationManager {
-    return this.reputation;
-  }
+  getX402Server() { return this.x402; }
+  getTreasury() { return this.treasury; }
+  getTradingCopilot() { return this.trading; }
+  getTokenCopilot() { return this.token; }
+  getResearchCopilot() { return this.research; }
+  getReputationManager() { return this.reputation; }
 }

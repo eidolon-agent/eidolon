@@ -77,6 +77,7 @@ export class EidolonOrchestrator extends EventEmitter {
       autoRefillAmount: config.treasury.autoRefillAmount,
       minUSDCBalance: config.treasury.minUSDCBalance,
       tokens: config.treasury.tokens,
+      rpcUrl: config.network.rpcUrl,
     });
 
     this.reputation = new ReputationManager(

@@ -5,6 +5,7 @@ import * as path from 'path';
 import { BankrClient } from '../core/bankr-client';
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
+import { ethers } from 'ethers';
 
 // Extend Express Request to include x402Required
 interface X402Request extends Request {
@@ -25,6 +26,8 @@ export interface X402Config {
   trustScoreWeight?: number; // optional, 0-1, how much ERC-8004 trust influences price
   dataDir?: string; // optional directory for persistence
   demoMode?: boolean; // if true, auto-seeds a demo client on startup
+  rpcUrl?: string; // Base RPC endpoint for custom token queries
+  tokens?: string[]; // additional token addresses to include in treasury
 }
 
 // Simple in-memory credit ledger for x402 payments with file persistence
@@ -126,6 +129,9 @@ export class X402Server extends EventEmitter {
   private ledger: CreditLedger;
   private trustScore: number = 500; // default, update via reputation manager
   private onChainBalances: any = null; // cached Bankr balances
+  private rpcUrl?: string;
+  private tokens?: string[];
+  private provider?: ethers.providers.JsonRpcProvider;
 
   constructor(config: X402Config, bankr: BankrClient) {
     super();
@@ -134,6 +140,11 @@ export class X402Server extends EventEmitter {
     const ledgerPath = config.dataDir ? `${config.dataDir}/ledger.json` : undefined;
     this.ledger = new CreditLedger(ledgerPath);
     this.ledger.setMaxDebt(config.maxDebt);
+    this.rpcUrl = config.rpcUrl;
+    this.tokens = config.tokens;
+    if (config.rpcUrl) {
+      this.provider = new ethers.providers.JsonRpcProvider(config.rpcUrl);
+    }
     this.app = express();
     this.app.use(express.json());
     // Serve static dashboard from public directory (dist/services/../.. = /app)

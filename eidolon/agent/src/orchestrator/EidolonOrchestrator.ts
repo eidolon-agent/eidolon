@@ -19,6 +19,7 @@ export interface EidolonConfig {
     autoRefillThreshold: number;
     autoRefillAmount: number;
     minUSDCBalance: number;
+    tokens?: string[]; // additional ERC-20 token addresses
   };
   erc8004: {
     identityRegistry: string;
@@ -68,6 +69,7 @@ export class EidolonOrchestrator extends EventEmitter {
     this.bankr = new BankrClient({
       llmApiKey: config.bankr.llmApiKey,
       agentApiKey: config.bankr.agentApiKey,
+      rpcUrl: config.network.rpcUrl,
     });
 
     this.treasury = new TreasuryManager(this.bankr, {
@@ -75,6 +77,8 @@ export class EidolonOrchestrator extends EventEmitter {
       autoRefillThreshold: config.treasury.autoRefillThreshold,
       autoRefillAmount: config.treasury.autoRefillAmount,
       minUSDCBalance: config.treasury.minUSDCBalance,
+      rpcUrl: config.network.rpcUrl,
+      tokens: config.treasury.tokens,
     });
 
     this.reputation = new ReputationManager(

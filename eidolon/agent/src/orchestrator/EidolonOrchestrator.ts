@@ -34,6 +34,7 @@ export interface EidolonConfig {
     pricing: Record<string, { priceUSD: number; description: string }>;
     maxDebt: number;
     dataDir?: string; // optional directory for x402 persistence
+    coinbaseApiKey?: string;
     demoMode?: boolean; // if true, auto-seeds demo client on startup
   };
   network: {
@@ -92,13 +93,22 @@ export class EidolonOrchestrator extends EventEmitter {
     this.token = new TokenCopilot(this.bankr);
     this.research = new ResearchCopilot(this.bankr, config.agent.llmModel);
 
-    // X402 server
     this.x402 = new X402Server(
       {
         port: config.x402.port,
         paymentAddress: config.x402.paymentAddress,
         pricing: config.x402.pricing,
         maxDebt: config.x402.maxDebt,
+        dataDir: config.x402.dataDir,
+        demoMode: config.x402.demoMode,
+        coinbaseApiKey: process.env.COINBASE_CDP_API_KEY || config.x402.coinbaseApiKey,
+      },
+      this.bankr,
+      {
+        rpcUrl: config.network.rpcUrl,
+        tokens: config.treasury.tokens,
+      }
+    );
         dataDir: config.x402.dataDir,
         demoMode: config.x402.demoMode,
       },

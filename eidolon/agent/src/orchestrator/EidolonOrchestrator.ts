@@ -73,6 +73,7 @@ export class EidolonOrchestrator extends EventEmitter {
   private running = false;
   private loopState: LoopState = 'idle';
   private loopTimer?: NodeJS.Timeout;
+  private startTime: number = Date.now();
 
   constructor(config: EidolonConfig) {
     super();
@@ -285,5 +286,9 @@ export class EidolonOrchestrator extends EventEmitter {
 
   getX402(): X402Server {
     return this.x402;
+  }
+
+  getUptime(): number {
+    return Date.now() - this.startTime;
   }
       }

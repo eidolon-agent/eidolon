@@ -84,8 +84,7 @@ export class EidolonOrchestrator extends EventEmitter {
       agentApiKey: config.bankr.agentApiKey,
     });
 
-    this.ethKnowledge = new EthereumKnowledgeService(config.network.rpcUrl);
-
+    this.ethKnowledge = new EthereumKnowledgeService();
     this.treasury = new TreasuryManager(this.bankr, {
       walletAddress: config.treasury.walletAddress,
       autoRefillThreshold: config.treasury.autoRefillThreshold,

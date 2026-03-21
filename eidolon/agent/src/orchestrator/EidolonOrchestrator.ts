@@ -6,7 +6,6 @@ import { TradingCopilot } from '../services/trading-copilot';
 import { TokenCopilot } from '../services/token-copilot';
 import { ResearchCopilot } from '../services/research-copilot';
 import { X402Server } from '../services/x402-server';
-import { EthereumKnowledgeService } from '../services/ethereum-knowledge';
 
 export interface EidolonConfig {
   bankr: {
@@ -49,7 +48,6 @@ export interface EidolonConfig {
 }
 
 export class EidolonOrchestrator extends EventEmitter {
-  private config: EidolonConfig;
   private bankr: BankrClient;
   private treasury: TreasuryManager;
   private reputation: ReputationManager;
@@ -57,23 +55,22 @@ export class EidolonOrchestrator extends EventEmitter {
   private token: TokenCopilot;
   private research: ResearchCopilot;
   private x402: X402Server;
-  private ethKnowledge: EthereumKnowledgeService;
 
   private running = false;
-  private loopInterval: NodeJS.Timeout | null = null;
-  private loopInProgress = false;
+  private loop?: NodeJS.Timeout;
 
-  constructor(config: EidolonConfig) {
+  constructor(private config: EidolonConfig) {
     super();
-    this.config = config;
 
-    // ✅ INIT CORE
+    // ✅ VALIDATION
+    if (!config.erc8004.agentId) {
+      throw new Error('AGENT_ID wajib di production');
+    }
+
     this.bankr = new BankrClient({
       llmApiKey: config.bankr.llmApiKey,
       agentApiKey: config.bankr.agentApiKey,
     });
-
-    this.ethKnowledge = new EthereumKnowledgeService();
 
     this.treasury = new TreasuryManager(this.bankr, {
       walletAddress: config.treasury.walletAddress,
@@ -94,17 +91,10 @@ export class EidolonOrchestrator extends EventEmitter {
       config.network.rpcUrl
     );
 
-    // ✅ FIX: pass initialized ethKnowledge
-    this.trading = new TradingCopilot(
-      this.bankr,
-      config.agent.llmModel,
-      this.ethKnowledge
-    );
-
+    this.trading = new TradingCopilot(this.bankr, config.agent.llmModel);
     this.token = new TokenCopilot(this.bankr);
     this.research = new ResearchCopilot(this.bankr);
 
-    // ✅ FIX: CLEAN constructor (no duplicate garbage)
     this.x402 = new X402Server(
       {
         port: config.x402.port,
@@ -114,76 +104,39 @@ export class EidolonOrchestrator extends EventEmitter {
         dataDir: config.x402.dataDir,
         demoMode: config.x402.demoMode,
         coinbaseApiKey: config.x402.coinbaseApiKey,
+      },
+      this.bankr,
+      {
         rpcUrl: config.network.rpcUrl,
         tokens: config.treasury.tokens,
-      },
-      this.bankr
+      }
     );
 
-    this.setupEventForwarding();
+    this.forwardEvents();
   }
 
-  private setupEventForwarding() {
-    const forward = (emitter: any, event: string) => {
-      emitter.on(event, (...args: any[]) => {
-        this.emit(event, ...args);
-      });
-    };
+  /* ========================= IDENTITY ========================= */
 
-    forward(this.treasury, 'log');
-    forward(this.treasury, 'alert');
-    forward(this.treasury, 'error');
-
-    forward(this.trading, 'log');
-    forward(this.trading, 'trade');
-    forward(this.trading, 'error');
-
-    forward(this.token, 'log');
-    forward(this.token, 'launched');
-    forward(this.token, 'error');
-
-    forward(this.research, 'log');
-    forward(this.research, 'error');
-
-    forward(this.x402, 'payment');
-    forward(this.x402, 'credit');
-    forward(this.x402, 'error');
-
-    forward(this.reputation, 'registered');
-  }
-
-  async initializeIdentity(): Promise<void> {
-    const agentId = this.config.erc8004.agentId;
-
-    const isValid = agentId && /^0x[0-9a-fA-F]{40,}$/.test(agentId);
-
-    if (isValid) {
-      this.reputation.setAgentId(BigInt(agentId));
-      this.emit('log', `Using existing agent ID ${agentId}`);
-      return;
-    }
-
-    if (!this.reputation.isEnabled()) {
-      this.emit('log', 'ERC-8004 disabled, skipping identity');
-      return;
-    }
+  async initializeIdentity() {
+    const raw = this.config.erc8004.agentId!;
 
     try {
-      const newId = await this.reputation.registerAgent(
-        this.config.agent.name,
-        this.config.agent.description,
-        this.config.agent.capabilities
-      );
-      this.emit('log', `Agent registered: ${newId}`);
+      const id = BigInt(raw);
+
+      this.reputation.setAgentId(id);
+
+      this.emit('log', `[Eidolon] Using existing agent ID ${id}`);
+
     } catch (err: any) {
-      this.emit('error', err.message);
+      this.emit('error', `Invalid AGENT_ID: ${err.message}`);
+      throw err;
     }
   }
 
-  async start() {
-    if (this.running) return;
+  /* ========================= START ========================= */
 
-    this.emit('log', 'Starting system...');
+  async start() {
+    this.emit('log', '[Eidolon] Starting...');
 
     await this.initializeIdentity();
 
@@ -195,106 +148,103 @@ export class EidolonOrchestrator extends EventEmitter {
 
     this.running = true;
 
-    // ✅ FIX: safe loop
-    this.loopInterval = setInterval(() => {
+    // ✅ improved loop (no overlap)
+    this.loop = setInterval(() => {
       this.safeLoop();
-    }, 5 * 60 * 1000);
+    }, 60_000); // 1 min
 
     await this.safeLoop();
+
+    this.emit('log', '[Eidolon] Running');
   }
 
   stop() {
     this.running = false;
 
-    if (this.loopInterval) {
-      clearInterval(this.loopInterval);
-      this.loopInterval = null;
-    }
+    if (this.loop) clearInterval(this.loop);
 
     this.treasury.stopAutoRefillLoop();
+    this.x402.stop();
 
-    this.emit('stopped');
+    this.emit('log', '[Eidolon] Stopped');
   }
+
+  /* ========================= LOOP ========================= */
+
+  private isRunningLoop = false;
 
   private async safeLoop() {
-    if (this.loopInProgress) {
-      this.emit('log', 'Skipping loop (still running)');
-      return;
-    }
-
-    this.loopInProgress = true;
+    if (this.isRunningLoop) return; // prevent overlap
+    this.isRunningLoop = true;
 
     try {
-      await this.runAutonomousLoop();
+      await this.runLoop();
+    } catch (err: any) {
+      this.emit('error', err.message);
     } finally {
-      this.loopInProgress = false;
+      this.isRunningLoop = false;
     }
   }
 
-  private async runAutonomousLoop() {
+  private async runLoop() {
     if (!this.running) return;
 
-    this.emit('log', '=== LOOP START ===');
+    this.emit('log', '[Loop] start');
 
+    // 1. treasury health
+    const health = await this.treasury.healthCheck();
+    if (!health.healthy) {
+      this.emit('alert', `Treasury issue: ${health.actions?.join(', ')}`);
+    }
+
+    // 2. reputation sync
+    const score = await this.reputation.getReputationScore();
+    this.x402.setTrustScore(score);
+
+    // 3. trading (safe)
     try {
-      // 1. treasury check
-      const health = await this.treasury.healthCheck();
-      if (!health.healthy) {
-        this.emit('alert', JSON.stringify(health));
-      }
-
-      // 2. trust score sync
-      const score = await this.reputation.getReputationScore();
-      this.x402.setTrustScore(score);
-
-      // 3. trading
       const trade = await this.trading.analyzeAndTrade(true);
       if (trade?.result?.success) {
-        this.emit('log', `Trade success`);
+        this.emit('trade', trade);
       }
+    } catch (err) {
+      this.emit('log', 'Trade skipped');
+    }
 
-      // 4. research (guard)
+    // 4. research (only if enough credits)
+    try {
       const credits = await this.treasury.getLLMCredits();
       if (credits > 10) {
         const report = await this.research.generateDailyReport();
-        this.emit('log', report.title);
+        this.emit('log', `Report: ${report.title}`);
       }
+    } catch {}
 
-      // 5. claim fees (safe)
-      try {
-        await this.token.claimFees('EIDO');
-      } catch {
-        // ignore
-      }
+    // 5. token fees (non-blocking)
+    this.token.claimFees('EIDO').catch(() => {});
 
-    } catch (err: any) {
-      this.emit('error', err.stack || err.message);
-    }
-
-    this.emit('log', '=== LOOP END ===');
+    this.emit('log', '[Loop] end');
   }
 
-  getX402Server() {
+  /* ========================= EVENTS ========================= */
+
+  private forwardEvents() {
+    const f = (em: any, ev: string) =>
+      em.on(ev, (...a: any[]) => this.emit(ev, ...a));
+
+    f(this.treasury, 'log');
+    f(this.treasury, 'alert');
+    f(this.trading, 'trade');
+    f(this.trading, 'error');
+    f(this.token, 'launched');
+    f(this.research, 'log');
+    f(this.x402, 'credit');
+    f(this.x402, 'payment');
+  }
+
+  /* ========================= GETTERS ========================= */
+
+  getX402() {
     return this.x402;
   }
-
-  getTreasury() {
-    return this.treasury;
-  }
-
-  getTradingCopilot() {
-    return this.trading;
-  }
-
-  getTokenCopilot() {
-    return this.token;
-  }
-
-  getResearchCopilot() {
-    return this.research;
-  }
-
-  getReputationManager() {
-    return this.reputation;
-  }
-  }
+      }

@@ -48,6 +48,7 @@ function validateConfig(): EidolonConfig {
       autoRefillThreshold: parseInt(process.env.AUTO_REFILL_THRESHOLD || '10'),
       autoRefillAmount: parseFloat(process.env.AUTO_REFILL_AMOUNT || '25'),
       minUSDCBalance: parseFloat(process.env.MIN_USDC_BALANCE || '5'),
+      tokens: process.env.TREASURY_TOKENS ? process.env.TREASURY_TOKENS.split(",").map((s: string) => s.trim()) : undefined,
     },
     erc8004: {
       identityRegistry: process.env.IDENTITY_REGISTRY!,

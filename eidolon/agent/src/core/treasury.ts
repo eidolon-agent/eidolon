@@ -6,6 +6,7 @@ export interface TreasuryConfig {
   autoRefillThreshold: number; // USDC amount below which auto-refill triggers
   autoRefillAmount: number; // USDC amount to buy in credits
   minUSDCBalance: number; // Keep at least this much for gas/trading
+  tokens?: string[];
 }
 
 export class TreasuryManager extends EventEmitter {

@@ -83,9 +83,21 @@ contract BuildingNFT is ERC721, ERC721Metadata, Ownable {
     }
 
     /**
-     * @dev Get all building types (for UI)
+     * @dev Get all minted building token IDs
      */
-    function buildingName(BuildingType type) internal pure returns (string memory) {
+    function getAllBuildings() external view returns (uint256[] memory) {
+        uint256 count = _tokenIdCounter.current();
+        uint256[] memory all = new uint256[](count);
+        for (uint256 i = 0; i < count; i++) {
+            all[i] = i;
+        }
+        return all;
+    }
+
+    /**
+     * @dev Get building type name (for UI)
+     */
+    function buildingName(BuildingType type) external pure returns (string memory) {
         if (type == BuildingType.HOUSE) return "House";
         if (type == BuildingType.FACTORY) return "Factory";
         if (type == BuildingType.FARM) return "Farm";

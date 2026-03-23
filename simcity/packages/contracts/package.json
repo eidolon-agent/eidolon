@@ -15,7 +15,7 @@
     "format": "forge fmt",
     "deploy:sepolia": "forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_SEPOLIA_RPC --private-key $PRIVATE_KEY --broadcast --verify",
     "deploy:mainnet": "forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_MAINNET_RPC --private-key $PRIVATE_KEY --broadcast --verify",
-    "deploy:local": "forge script script/Deploy.s.sol:Deploy --rpc-url http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    "deploy:local": "forge script script/Deploy.s.sol:Deploy --rpc-url http://localhost:8545 --private-key $PRIVATE_KEY"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "^5.0.0",

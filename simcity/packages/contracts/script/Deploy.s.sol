@@ -14,7 +14,10 @@ contract Deploy is Script {
     CityTreasury public treasury;
     CitizenRegistry public citizens;
 
-    uint256 private deployerKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+    // WARNING: Never commit real private keys. For local fork testing only.
+    // Replace with your own test account when running locally.
+    // For mainnet deployment, the actual signing key is provided via --private-key flag, not here.
+    uint256 private deployerKey = 0x0000000000000000000000000000000000000000000000000000000000000001;
     address private deployer = vm.addr(deployerKey);
 
     // Base Mainnet addresses (verified per ethskills.com)

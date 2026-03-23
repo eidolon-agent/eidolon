@@ -16,7 +16,7 @@ This directory contains scripts and instructions for deploying SimCity to Base M
 
 ```bash
 export BASE_MAINNET_RPC="https://mainnet.base.org"
-export PRIVATE_KEY="0x... (your deployer key)"
+export PRIVATE_KEY="0x... (your deployer key, NEVER commit this)"
 export ETHERSCAN_API_KEY="YourEtherscanKey"
 ```
 
@@ -39,7 +39,19 @@ The script will deploy:
 
 **Save the emitted addresses** — you'll need them for the frontend.
 
-### 3. Update Frontend Configuration
+### 3. Transfer Ownership to a Safe Multisig (HIGHLY RECOMMENDED)
+
+**Do not leave contract ownership with a single EOA.** Create a Safe multisig and transfer ownership:
+
+1. Create a Safe on Base: https://app.safe.global/
+   - Recommended: 2-of-3 or 3-of-5 multisig
+   - Owners: your hot wallet, cold wallet, and a trusted contact (recovery)
+2. For each contract, call `transferOwnership(newSafeAddress)` from the deployer.
+3. Verify on Basescan that the new owner is the Safe.
+
+**Why:** A single compromised key could drain funds or break the protocol. A Safe multisig requires multiple signatures and provides recovery options.
+
+### 4. Update Frontend Configuration
 
 Edit `packages/nextjs/.env.local`:
 
@@ -52,7 +64,7 @@ NEXT_PUBLIC_CITIZEN_REGISTRY_ADDRESS="0x..."
 NEXT_PUBLIC_USDC_ADDRESS="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 ```
 
-### 4. Deploy Frontend
+### 5. Deploy Frontend
 
 ```bash
 cd packages/nextjs
@@ -66,12 +78,11 @@ Recommended: Vercel (auto-detects Next.js)
 vercel --prod
 ```
 
-### 5. Post‑Deployment
+### 6. Post‑Deployment
 
 - Fund the treasury with USDC if you want real yield
-- Set up multisig ownership for upgradeable contracts (if any)
-- Add Chainlink VRF subscription for RandomEvents (if enabled)
-- Create a governance timelock for future parameter changes
+- Set up Chainlink VRF subscription for RandomEvents (if enabled)
+- Create a governance timelock for future parameter changes (optional)
 
 ## Maintenance
 
@@ -89,7 +100,30 @@ slither .
 forge test --fuzz-runs 10000
 ```
 
-See `../docs/SECURITY.md` for audit checklist.
+See `../docs/SECURITY.md` for audit checklist and `../docs/AUDIT_REPORT.md` for full review.
+
+---
+
+## Wallet Safety (Players & Developers)
+
+⚠️ **NEVER commit private keys or API keys to Git.** Bots scan repos and drain funds in seconds.
+
+```bash
+# Check before every commit
+git diff --cached --name-only | grep -iE '\.env|key|secret|private'
+```
+
+**For players:**
+- Use a dedicated wallet (not your main holding wallet)
+- Set token approval limits (exact amounts, not infinite)
+- Verify contract addresses before interacting
+- Use a Safe multisig for high-value positions (optional)
+
+**For developers:**
+- Store keys in environment variables (`.env` in `.gitignore`)
+- Use hardware wallets or encrypted keystores for deployment
+- Transfer contract ownership to a Safe multisig after deployment
+- Implement spending limits in frontend (show warnings for large txs)
 
 ---
 
@@ -97,7 +131,16 @@ See `../docs/SECURITY.md` for audit checklist.
 
 | Name | Address | Verification |
 |------|---------|--------------|
-| CityToken | `0x...` | [Etherscan] |
-| BuildingNFT | `0x...` | [Etherscan] |
-| CityTreasury | `0x...` | [Etherscan] |
-| CitizenRegistry | `0x...` | [Etherscan] |
+| CityToken | `0x...` | [Basescan] |
+| BuildingNFT | `0x...` | [Basescan] |
+| CityTreasury | `0x...` | [Basescan] |
+| CitizenRegistry | `0x...` | [Basescan] |
+
+---
+
+## Support
+
+- **Docs:** `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/AUDIT_REPORT.md`
+- **Issues:** Open on GitHub
+- **Community:** (coming soon)
+

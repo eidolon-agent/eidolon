@@ -1,8 +1,133 @@
 # Agentic SimCity 🏙️
 
-A city-building game where resources are real ERC-20 tokens, buildings are NFTs, and autonomous AI agents work for you. Built with Scaffold-ETH 2, x402 micropayments, ERC-4626 vaults, and ERC-8004 agent identities.
+**A full‑stack Ethereum dApp portfolio piece** featuring real DeFi yield, autonomous agents, and micropayments.
 
-**Status:** MVP — Ready for Base Sepolia testing. Mainnet deployment coming soon.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Solidity](https://img.shields.io/badge/Solidity-0.8.20-blue?logo=solidity)](https://soliditylang.org/)
+[![Base](https://img.shields.io/badge/Base-8453-24C7D9?logo=base)](https://base.org)
+[![Build](https://img.shields.io/badge/Build-Foundry-FF6B6B?logo=ethereum)](https://book.getfoundry.sh/)
+[![Frontend](https://img.shields.io/badge/Frontend-Next.js-000?logo=vercel)](https://nextjs.org/)
+
+---
+
+## 🚀 What's Inside
+
+| Category | Technologies |
+|----------|--------------|
+| **Smart Contracts** | Solidity + Foundry, OpenZeppelin (ERC‑20, ERC‑721, ERC‑4626) |
+| **DeFi Integration** | Aave V3 (yield), Aerodrome DEX (swaps) |
+| **Agent Identity** | ERC‑8004 registry for autonomous citizens |
+| **Payments** | x402 HTTP micropayments (Coinbase CDP) |
+| **Randomness** | Chainlink VRF |
+| **Frontend** | Next.js 14, Wagmi, viem, TanStack Query |
+| **Styling** | Cyberpunk dark theme (neon, monospace) |
+| **Backend** | Node.js simulation engine (off‑chain ticks) |
+| **Testing** | Foundry unit + fuzz tests |
+| **DevEx** | Scaffold‑ETH 2 inspired workspace structure |
+
+---
+
+## 📦 Repository Structure
+
+```
+simcity/
+├── packages/
+│   ├── contracts/      # Solidity + Forge tests + deploy scripts
+│   ├── nextjs/         # Next.js frontend (App Router)
+│   └── engine/         # Off‑chain simulation engine
+├── docs/               # Architecture, security checklist
+├── deploy/             # Deployment scripts & guide
+├── ROADMAP.md          # Future features
+├── CONTRIBUTING.md     # Contribution guidelines
+└── README.md           # This file
+```
+
+---
+
+## ✅ Status
+
+**MVP Complete** — All core features implemented and tested locally.
+
+- ✅ Real DeFi yield (Aave V3)
+- ✅ Autonomous agents (ERC‑8004)
+- ✅ DEX marketplace (Aerodrome)
+- ✅ Random events (Chainlink VRF)
+- ✅ x402 micropayments
+- ✅ Full‑stack frontend
+- ✅ Simulation engine
+- ✅ Security checklist
+
+---
+
+## 🛠️ Quick Start
+
+```bash
+cd simcity
+yarn install
+
+# Compile contracts
+yarn workspace @simcity/contracts build
+
+# Run tests
+yarn workspace @simcity/contracts test
+
+# Deploy to Base Sepolia
+cp packages/contracts/.env.example packages/contracts/.env
+# edit .env with RPC + private key
+yarn workspace @simcity/contracts deploy:sepolia
+
+# Start frontend
+cd packages/nextjs
+cp .env.local.example .env.local
+# edit .env.local with deployed contract addresses
+yarn dev
+```
+
+Open http://localhost:3000
+
+---
+
+## 📚 Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — System design & data flow
+- [Security](docs/SECURITY.md) — Pre‑deployment checklist
+- [Deploy Guide](deploy/README.md) — Step‑by‑step mainnet deployment
+- [Roadmap](ROADMAP.md) — Planned features
+
+---
+
+## 🎥 Demo (coming soon)
+
+A short video walkthrough will be added shortly showing:
+- Wallet connect
+- Building purchase (x402 payment)
+- Agent recruitment & assignment
+- Treasury deposit & Aave yield
+- CITY/USDC swap on Aerodrome
+
+---
+
+## 💡 Why This Matters for Your Portfolio
+
+- **Full‑stack dApp:** From Solidity to React, everything is here.
+- **Real DeFi:** Not just a toy — integrates live protocols (Aave, Aerodrome).
+- **Modern standards:** ERC‑4626, ERC‑8004, x402 — all cutting edge as of 2026.
+- **Production patterns:** Access control, events, CEI, testing, forgeries.
+- **Web2/3 bridge:** Express backend + simulation engine + blockchain.
+- **Ready to deploy:** Scripts included for Base Mainnet.
+
+Use this project to demonstrate: smart contract development, DeFi integrations, AI‑agent concepts, and modern frontend engineering — all in one repo.
+
+---
+
+## 📜 License
+
+MIT — feel free to fork, modify, and use in your own portfolio.
+
+---
+
+**Built with love and lots of coffee** ☕ by an autonomous agent (in training).
+
 
 ## Tech Stack
 

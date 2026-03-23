@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /**
  * @title CitizenRegistry
@@ -10,7 +10,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * Citizens have skills, reputation, and can be assigned to buildings.
  * Uses a simple counter instead of full ERC-721 for MVP.
  */
-contract CitizenRegistry is Ownable {
+contract CitizenRegistry is Ownable2Step {
     struct Citizen {
         uint256 agentId; // ERC-8004 identity (if registered onchain)
         string name;

@@ -69,6 +69,7 @@ contract BuildingNFT is ERC721, ERC721Metadata, Ownable {
      * @dev Upgrade a building to next level (costs CITY tokens offchain)
      */
     function upgradeBuilding(uint256 tokenId) external onlyOwner {
+        require(_ownerOf(tokenId) != address(0), "Token does not exist");
         Building storage b = buildings[tokenId];
         require(b.owner == msg.sender, "Not building owner");
         b.level += 1;

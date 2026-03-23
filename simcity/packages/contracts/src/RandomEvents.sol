@@ -43,6 +43,10 @@ contract RandomEvents is VRFConsumerBase, Ownable {
      * @dev Request randomness for an event
      */
     function requestRandomEvent(EventType eventType, address triggeredBy) external returns (uint256) {
+        require(subscriptionId != 0, "VRF subscription not configured");
+        // Additional check: ensure coordinator is set (via VRFConsumerBase)
+        // (VRFConsumerBase stores vrfCoordinator; we trust it's set)
+
         uint256 eventId = nextEventId++;
         pendingEvents[eventId] = PendingEvent({
             eventType: eventType,

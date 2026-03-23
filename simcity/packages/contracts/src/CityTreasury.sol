@@ -75,8 +75,8 @@ contract CityTreasury is ERC4626, Ownable {
      */
     function _depositToAave(uint256 amount) internal {
         IERC20(asset()).approve(address(aavePool), amount);
-        bool success = aavePool.supply(address(asset()), amount, address(this), 0);
-        require(success, "Aave deposit failed");
+        uint256 actualSupplied = aavePool.supply(address(asset()), amount, address(this), 0);
+        require(actualSupplied == amount, "Aave partial deposit");
         aaveDeposited += amount;
     }
 
@@ -85,8 +85,8 @@ contract CityTreasury is ERC4626, Ownable {
      */
     function _withdrawFromAave(uint256 amount) internal {
         // Withdraw from Aave to this vault
-        bool success = aavePool.withdraw(address(asset()), amount, address(this));
-        require(success, "Aave withdraw failed");
+        uint256 actualWithdrawn = aavePool.withdraw(address(asset()), amount, address(this));
+        require(actualWithdrawn == amount, "Aave partial withdrawal");
         aaveDeposited -= amount;
     }
 

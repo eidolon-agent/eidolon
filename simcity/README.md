@@ -2,6 +2,8 @@
 
 A city-building game where resources are real ERC-20 tokens, buildings are NFTs, and autonomous AI agents work for you. Built with Scaffold-ETH 2, x402 micropayments, ERC-4626 vaults, and ERC-8004 agent identities.
 
+**Status:** MVP — Ready for Base Sepolia testing. Mainnet deployment coming soon.
+
 ## Tech Stack
 
 - **Contracts**: Solidity + Foundry, OpenZeppelin (ERC-20, ERC-721, ERC-4626)
@@ -75,12 +77,14 @@ Open http://localhost:3000
 
 - [x] CityToken (ERC-20) with mint/burn
 - [x] BuildingNFT (ERC-721) with mint and upgrade
-- [x] CityTreasury (ERC-4626 vault) — deposit/withdraw shares
+- [x] CityTreasury (ERC-4626 vault) — **integrates Aave V3 for real yield**
+- [x] CitizenRegistry — **ERC-8004 identity** for autonomous agents (MVP)
 - [x] Foundry deploy script (local fork + live)
-- [x] Basic CityToken test
+- [x] Foundry tests (CityToken, BuildingNFT, CitizenRegistry)
 - [x] Next.js frontend with wallet connect
 - [x] x402 weather endpoint (payment required)
-- [x] Cyberpunk-ish UI
+- [x] Cyberpunk UI
+- [x] Offchain resource simulation (Node.js engine planned)
 
 ## Roadmap
 

@@ -1,0 +1,31 @@
+{
+  "name": "@simcity/nextjs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint",
+    "clean": "rm -rf .next"
+  },
+  "dependencies": {
+    "@scaffold-eth/react": "0.1.0",
+    "@x402/express": "^0.1.0",
+    "@x402/fetch": "^0.1.0",
+    "@x402/evm": "^0.1.0",
+    "next": "^14.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "viem": "^2.21.0",
+    "wagmi": "^2.12.0",
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "devDependencies": {
+    "@scaffold-eth/config": "0.1.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
+}

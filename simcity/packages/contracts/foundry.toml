@@ -1,0 +1,39 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+    "@x402/=lib/x402-sdk/ contracts",
+]
+eth_rpc_url = "https://sepolia.base.org"
+block_number = 0
+gas_reports = ["*"]
+gas_price = 20 gwei
+
+[profile.ci]
+fmt = false
+auto_detect = false
+fuzz = { runs = 1000 }
+invariant = { runs = 100 }
+diff = true
+
+[profile.local]
+eth_rpc_url = "http://localhost:8545"
+
+[etherscan]
+base_sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://sepolia.basescan.org" }
+base = { key = "${ETHERSCAN_API_KEY}", url = "https://basescan.org" }
+
+[rpc_endpoints]
+base_sepolia = "https://sepolia.base.org"
+base = "https://mainnet.base.org"
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true
+intentional_tabs = false

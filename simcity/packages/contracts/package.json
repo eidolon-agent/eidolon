@@ -1,0 +1,30 @@
+{
+  "name": "@simcity/contracts",
+  "version": "0.1.0",
+  "main": "dist/src/CityToken.sol/CityToken.json",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "forge build",
+    "clean": "forge clean",
+    "test": "forge test -vvv",
+    "coverage": "forge coverage",
+    "lint": "solhint 'src/**/*.sol' 'test/**/*.sol'",
+    "lint:fix": "solhint 'src/**/*.sol' 'test/**/*.sol' --fix",
+    "format": "forge fmt",
+    "deploy:sepolia": "forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_SEPOLIA_RPC --private-key $PRIVATE_KEY --broadcast --verify",
+    "deploy:mainnet": "forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_MAINNET_RPC --private-key $PRIVATE_KEY --broadcast --verify",
+    "deploy:local": "forge script script/Deploy.s.sol:Deploy --rpc-url http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "@openzeppelin/contracts-upgradeable": "^5.0.0",
+    "forge-std": "^1.6.0",
+    "solhint": "^5.0.0"
+  },
+  "dependencies": {
+    "@x402/evm": "^0.1.0",
+    "lib-x402": "^0.1.0"
+  }
+}

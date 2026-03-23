@@ -1,0 +1,17 @@
+{
+  "name": "simcity",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "yarn workspace @simcity/contracts build && yarn workspace @simcity/nextjs build",
+    "test": "yarn workspace @simcity/contracts test",
+    "lint": "yarn workspaces run lint",
+    "clean": "yarn workspaces run clean"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

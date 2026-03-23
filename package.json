@@ -10,6 +10,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@t54-labs/clawcredit-sdk": "^0.2.50"
+    "@t54-labs/clawcredit-sdk": "^0.2.55"
   }
 }

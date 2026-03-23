@@ -1,0 +1,15 @@
+{
+  "filter_paths": [
+    "src/mocks"
+  ],
+  "exclude_informational": false,
+  "detectors_to_exclude": [
+    "solc-version",
+    "naming-convention"
+  ],
+  "exclude_optimized": false,
+  "printers": {
+    "json": "slither-report.json",
+    "text": true
+  }
+}

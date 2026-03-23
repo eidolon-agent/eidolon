@@ -221,13 +221,19 @@ Open http://localhost:3000
 - [ ] Leaderboard and agent ranking
 - [ ] Deploy to Base Mainnet
 
-## Security
+## Security & QA
 
-Before mainnet:
-- [ ] Slither analysis
-- [ ] Full fuzz + invariant tests
-- [ ] External audit (or thorough self-audit using ethskills audit checklist)
-- [ ] Multisig ownership for all contracts
+Before mainnet, run the full check suite:
+
+```bash
+./scripts/check.sh   # builds, lints, Slither, fuzz tests (10000 runs), coverage
+```
+
+Pre-commit hook provided to prevent secret leaks (`.git/hooks/pre-commit.example`).
+
+For deployment, transfer ownership to a Safe multisig (see `deploy/README.md`).
+
+See `docs/AUDIT_REPORT.md` for full evm-audit findings and fixes.
 
 ## x402 Integration
 
